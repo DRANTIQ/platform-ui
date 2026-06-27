@@ -31,6 +31,9 @@ export function AppShell() {
               <NavLink to="/scans" className={navCls}>
                 Scans
               </NavLink>
+              <NavLink to="/integrations" className={navCls}>
+                Integrations
+              </NavLink>
               {mode === "supabase" ? (
                 <NavLink to="/dev" className={navCls}>
                   Session

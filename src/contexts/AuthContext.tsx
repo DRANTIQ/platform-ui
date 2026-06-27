@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -18,6 +19,7 @@ import {
   type DevRole,
 } from "../lib/auth";
 import { isSupabaseAuth } from "../lib/config";
+import { sleep } from "../lib/retry";
 import { getSupabase } from "../lib/supabase";
 import type { MeResponse } from "../types/platform";
 
@@ -49,12 +51,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(supabaseMode);
   const [authError, setAuthError] = useState<string | null>(null);
+  const meRefreshRef = useRef<Promise<MeResponse> | null>(null);
 
   const refreshMe = useCallback(async (token: string) => {
-    const profile = await getMe({ tenantId: "", role: "viewer", bearerToken: token });
-    setMe(profile);
-    setAuthError(null);
-    return profile;
+    if (meRefreshRef.current) {
+      return meRefreshRef.current;
+    }
+
+    const task = (async () => {
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const profile = await getMe({ tenantId: "", role: "viewer", bearerToken: token });
+          setMe(profile);
+          setAuthError(null);
+          return profile;
+        } catch (e) {
+          lastError = e;
+          if (attempt < 3) {
+            await sleep(250 * (attempt + 1));
+          }
+        }
+      }
+      const msg = lastError instanceof Error ? lastError.message : "Failed to load profile";
+      setAuthError(msg);
+      setMe(null);
+      throw lastError instanceof Error ? lastError : new Error(msg);
+    })();
+
+    meRefreshRef.current = task;
+    try {
+      return await task;
+    } finally {
+      if (meRefreshRef.current === task) {
+        meRefreshRef.current = null;
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -84,19 +116,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
-      if (nextSession?.access_token) {
-        try {
-          await refreshMe(nextSession.access_token);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : "Failed to load profile";
-          setAuthError(msg);
-          setMe(null);
-        }
-      } else {
+      if (!nextSession?.access_token) {
         setMe(null);
+        return;
       }
+      // init() already loads profile for the persisted session
+      if (event === "INITIAL_SESSION") {
+        return;
+      }
+      void refreshMe(nextSession.access_token).catch(() => undefined);
     });
 
     return () => {

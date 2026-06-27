@@ -165,10 +165,14 @@ export function ScanDetailPage() {
             empty="No findings"
             headers={["Policy", "Resource", "Severity", "Title"]}
             rows={visibleFindings.map((f) => [
-              f.policy_id,
+              <Link key={`${f.id}-p`} to={`/scans/${scanId}/findings/${f.id}`} className="font-mono text-indigo-600 hover:underline">
+                {f.policy_id}
+              </Link>,
               <span key={f.id} className="font-mono text-xs">{f.resource_id.split("/").pop()}</span>,
               <span key={`${f.id}-s`} className={`rounded px-1.5 py-0.5 text-xs ${severityTone(f.severity)}`}>{f.severity}</span>,
-              f.title,
+              <Link key={`${f.id}-t`} to={`/scans/${scanId}/findings/${f.id}`} className="text-slate-800 hover:text-indigo-600">
+                {f.title}
+              </Link>,
             ])}
           />
         </div>

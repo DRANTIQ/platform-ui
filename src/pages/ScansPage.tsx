@@ -73,6 +73,15 @@ export function ScansPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
 
+      {!integrations.length && canWrite && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Connect an AWS account before running a scan.{" "}
+          <Link to="/integrations" className="font-medium text-indigo-600 hover:underline">
+            Go to Integrations
+          </Link>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">

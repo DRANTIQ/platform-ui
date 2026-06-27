@@ -47,7 +47,7 @@ export function useScanPolling(
       cancelled = true;
       if (timer.current) window.clearTimeout(timer.current);
     };
-  }, [auth.tenantId, auth.role, scanId, enabled, intervalMs]);
+  }, [auth.tenantId, auth.role, auth.bearerToken, scanId, enabled, intervalMs]);
 
   return { scan, error, loading };
 }

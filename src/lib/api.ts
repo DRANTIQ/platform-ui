@@ -93,6 +93,20 @@ export function listIntegrations(auth: AuthHeaders): Promise<Integration[]> {
   return request(auth, "/v1/integrations");
 }
 
+export type AwsIntegrationCreate = {
+  account_id: string;
+  role_arn: string;
+  external_id: string;
+  regions: string[];
+};
+
+export function createAwsIntegration(
+  auth: AuthHeaders,
+  body: AwsIntegrationCreate,
+): Promise<Integration> {
+  return request(auth, "/v1/integrations/aws", { method: "POST", body });
+}
+
 export function listScans(auth: AuthHeaders, limit = 50): Promise<Scan[]> {
   return request(auth, "/v1/scans", { params: { limit } });
 }
@@ -125,6 +139,14 @@ export function listFindings(
   return request(auth, "/v1/findings", {
     params: { scan_id: scanId, ...filters, limit: 500 },
   });
+}
+
+export function getFinding(
+  auth: AuthHeaders,
+  scanId: string,
+  findingId: string,
+): Promise<Finding> {
+  return request(auth, `/v1/findings/${findingId}`, { params: { scan_id: scanId } });
 }
 
 export function listAssets(

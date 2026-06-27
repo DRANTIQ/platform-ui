@@ -4,6 +4,8 @@ import { AppShell } from "./components/layout/AppShell";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DevAuthPage } from "./pages/DevAuthPage";
+import { FindingDetailPage } from "./pages/FindingDetailPage";
+import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ScanDetailPage } from "./pages/ScanDetailPage";
 import { ScansPage } from "./pages/ScansPage";
@@ -22,8 +24,10 @@ export default function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="integrations" element={<IntegrationsPage />} />
             <Route path="scans" element={<ScansPage />} />
             <Route path="scans/:scanId" element={<ScanDetailPage />} />
+            <Route path="scans/:scanId/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="dev" element={<DevAuthPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
