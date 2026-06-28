@@ -29,8 +29,10 @@ export async function loadScanExperience(
     ]);
     return { summary, priorities };
   } catch (e) {
-    if (!(e instanceof ApiError) || e.status !== 404) throw e;
-    return buildLegacyScanExperience(auth, scanId);
+    if (e instanceof ApiError && (e.status === 404 || e.status >= 500)) {
+      return buildLegacyScanExperience(auth, scanId);
+    }
+    throw e;
   }
 }
 
