@@ -14,18 +14,17 @@ import {
   fixInstruction,
   formatEvidenceSummary,
   frameworkTags,
-  resourceDisplayName,
   resourceRegion,
   riskHeadline,
   riskSummary,
   terraformFix,
 } from "../lib/securityPresentation";
-import type { Asset, Finding } from "../types/platform";
+import type { Asset, FindingDetail } from "../types/platform";
 
 export function FindingDetailPage() {
   const { scanId, findingId } = useParams<{ scanId: string; findingId: string }>();
   const { authHeaders } = useAuth();
-  const [finding, setFinding] = useState<Finding | null>(null);
+  const [finding, setFinding] = useState<FindingDetail | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +91,8 @@ export function FindingDetailPage() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <DetailCard label="Affected resource" value={resourceDisplayName(finding)} />
+        <DetailCard label="Affected resource" value={finding.affected_resource} />
+        <DetailCard label="Resource type" value={finding.resource_type_label} />
         <DetailCard label="Region" value={region} />
         <DetailCard label="Severity" value={finding.severity} capitalize />
         <DetailCard label="Estimated fix" value={`${estimatedFixMinutes(finding)} minutes`} />
@@ -181,6 +181,10 @@ export function FindingDetailPage() {
         {showTechnical && (
           <div className="border-t border-slate-200 px-5 py-4 text-sm">
             <p>
+              <span className="text-slate-400">Technical title:</span>{" "}
+              {finding.technical_title}
+            </p>
+            <p className="mt-2">
               <span className="text-slate-400">Policy ID:</span>{" "}
               <code className="font-mono">{finding.policy_id}</code>
             </p>

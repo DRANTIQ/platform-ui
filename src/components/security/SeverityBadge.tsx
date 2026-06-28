@@ -28,7 +28,15 @@ export function SeverityPills({ counts }: { counts: Record<string, number> }) {
   );
 }
 
-export function ScoreRing({ score, size = "lg" }: { score: number; size?: "lg" | "md" }) {
+export function ScoreRing({ score, size = "lg" }: { score: number | null; size?: "lg" | "md" }) {
+  if (score == null) {
+    const dim = size === "lg" ? "h-28 w-28 text-lg" : "h-20 w-20 text-base";
+    return (
+      <div className={`flex ${dim} flex-col items-center justify-center rounded-full border-4 border-slate-200 bg-slate-50`}>
+        <span className="font-bold text-slate-400">—</span>
+      </div>
+    );
+  }
   const tone =
     score >= 80 ? "text-emerald-600" : score >= 50 ? "text-amber-600" : "text-red-600";
   const ring =

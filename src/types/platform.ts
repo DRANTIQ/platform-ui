@@ -30,11 +30,19 @@ export type FindingRemediation = {
   risk_summary: string | null;
   business_impact: string | null;
   fix_summary: string | null;
+  summary?: string | null;
   estimated_fix_minutes: number | null;
+  estimated_minutes?: number | null;
   framework_mappings: string[];
   aws_cli: string | null;
   terraform: string | null;
   cloudformation: string | null;
+  aws_console_steps?: string[];
+};
+
+export type FrameworkRef = {
+  framework: string;
+  control: string;
 };
 
 export type Finding = {
@@ -46,11 +54,79 @@ export type Finding = {
   status: string;
   severity: string;
   title: string;
+  display_title?: string | null;
+  technical_title?: string | null;
   description: string | null;
   evidence: Record<string, unknown>;
   remediation?: FindingRemediation;
   evaluated_at: string;
   created_at: string;
+};
+
+export type FindingDetail = Finding & {
+  plain_language_title: string;
+  affected_resource: string;
+  resource_type_label: string;
+  risk: string | null;
+  business_impact: string | null;
+  frameworks: FrameworkRef[];
+};
+
+export type TopRiskItem = {
+  finding_id: string;
+  policy_id: string;
+  title: string;
+  technical_title: string;
+  severity: string;
+  affected_resource: string;
+  resource_type: string;
+  why_it_matters: string | null;
+  business_impact: string | null;
+  estimated_fix_minutes: number | null;
+};
+
+export type ScanRiskSummary = {
+  score: number | null;
+  total_findings: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+  top_risks: TopRiskItem[];
+};
+
+export type FixPriorityItem = {
+  rank: number;
+  finding_id: string;
+  policy_id: string;
+  display_title: string;
+  technical_title: string;
+  severity: string;
+  affected_resource: string;
+  resource_id: string;
+  resource_type: string;
+  why_it_matters: string | null;
+  business_impact: string | null;
+  estimated_fix_minutes: number | null;
+  frameworks: FrameworkRef[];
+  internet_exposed: boolean;
+  data_sensitive: boolean;
+};
+
+export type ResourceRisk = {
+  resource_id: string;
+  risk_level: string;
+  finding_count: number;
+  findings: {
+    finding_id: string;
+    policy_id: string;
+    display_title: string;
+    technical_title: string;
+    severity: string;
+    remediation_summary: string | null;
+  }[];
+  display_titles: string[];
 };
 
 export type Asset = {

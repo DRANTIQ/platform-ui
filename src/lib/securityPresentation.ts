@@ -1,4 +1,4 @@
-import type { Asset, Finding, FindingRemediation, TimelineEvent } from "../types/platform";
+import type { Asset, Finding, FindingDetail, FindingRemediation, TimelineEvent } from "../types/platform";
 
 const SEVERITY_ORDER: Record<string, number> = {
   critical: 0,
@@ -36,15 +36,20 @@ const TIMELINE_LABELS: Record<string, string> = {
   "scan.completed": "Scan completed",
 };
 
-function rem(finding: Finding): FindingRemediation | undefined {
+function rem(finding: Finding | FindingDetail): FindingRemediation | undefined {
   return finding.remediation;
 }
 
-export function riskHeadline(finding: Finding): string {
+export function riskHeadline(finding: Finding | FindingDetail): string {
+  if ("plain_language_title" in finding && finding.plain_language_title) {
+    return finding.plain_language_title;
+  }
+  if (finding.display_title) return finding.display_title;
   return rem(finding)?.headline ?? finding.title;
 }
 
-export function riskSummary(finding: Finding): string {
+export function riskSummary(finding: Finding | FindingDetail): string {
+  if ("risk" in finding && finding.risk) return finding.risk;
   return (
     rem(finding)?.risk_summary ??
     finding.description ??
@@ -52,32 +57,45 @@ export function riskSummary(finding: Finding): string {
   );
 }
 
-export function businessImpact(finding: Finding): string {
+export function businessImpact(finding: Finding | FindingDetail): string {
+  if ("business_impact" in finding && finding.business_impact) return finding.business_impact;
   return (
     rem(finding)?.business_impact ??
     "This misconfiguration may lead to unauthorized access or compliance failure."
   );
 }
 
-export function fixInstruction(finding: Finding): string {
+export function fixInstruction(finding: Finding | FindingDetail): string {
+  const r = rem(finding);
+  if (r?.summary) return r.summary;
   return (
-    rem(finding)?.fix_summary ??
+    r?.fix_summary ??
     "Review the affected resource in AWS and apply the recommended security control."
   );
 }
 
-export function frameworkTags(finding: Finding): string[] {
+export function frameworkTags(finding: Finding | FindingDetail): string[] {
+  if ("frameworks" in finding && finding.frameworks?.length) {
+    return finding.frameworks.map((f) =>
+      f.control ? `${f.framework} ${f.control}` : f.framework,
+    );
+  }
   return rem(finding)?.framework_mappings ?? [];
 }
 
-export function cisControl(finding: Finding): string | null {
+export function cisControl(finding: Finding | FindingDetail): string | null {
+  if ("frameworks" in finding && finding.frameworks?.length) {
+    const cis = finding.frameworks.find((f) => f.framework.includes("CIS"));
+    if (cis) return cis.control ? `CIS ${cis.control}` : cis.framework;
+  }
   const tags = frameworkTags(finding);
   const cis = tags.find((t) => t.startsWith("CIS "));
   return cis ?? null;
 }
 
-export function estimatedFixMinutes(finding: Finding): number {
-  const fromApi = rem(finding)?.estimated_fix_minutes;
+export function estimatedFixMinutes(finding: Finding | FindingDetail): number {
+  const r = rem(finding);
+  const fromApi = r?.estimated_minutes ?? r?.estimated_fix_minutes;
   if (fromApi != null) return fromApi;
   return { critical: 5, high: 5, medium: 3, low: 2, info: 2 }[finding.severity] ?? 3;
 }
@@ -86,7 +104,10 @@ export function resourceLabel(resourceType: string): string {
   return RESOURCE_TYPE_LABEL[resourceType] ?? resourceType.replace(/\./g, " ");
 }
 
-export function resourceDisplayName(finding: Finding): string {
+export function resourceDisplayName(finding: Finding | FindingDetail): string {
+  if ("affected_resource" in finding && finding.affected_resource) {
+    return finding.affected_resource;
+  }
   const ev = finding.evidence ?? {};
   const props = (ev.properties as Record<string, unknown>) ?? ev;
   const name =
@@ -219,6 +240,16 @@ export function groupAssetsByType(assets: Asset[]): { label: string; type: strin
       items,
     }))
     .sort((a, b) => b.count - a.count);
+}
+
+export function assetHealthFromPriorities(
+  resourceId: string,
+  priorities: { resource_id: string; severity: string }[],
+): "healthy" | "attention" | "critical" {
+  const related = priorities.filter((p) => p.resource_id === resourceId);
+  if (related.some((p) => p.severity === "critical" || p.severity === "high")) return "critical";
+  if (related.length > 0) return "attention";
+  return "healthy";
 }
 
 export function assetHealth(

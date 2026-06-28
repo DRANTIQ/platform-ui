@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useScanPolling } from "../hooks/useScanPolling";
-import { PriorityFixList, IssueListItem } from "../components/security/PriorityFixList";
+import { PriorityFixList, TopRiskListItem } from "../components/security/PriorityFixList";
 import { ScoreRing, SeverityBadge, SeverityPills } from "../components/security/SeverityBadge";
 import {
   getScanCompliance,
@@ -10,6 +10,7 @@ import {
   listAssets,
   listFindings,
 } from "../lib/api";
+import { loadScanExperience } from "../lib/scanExperience";
 import {
   controlStatusTone,
   formatDate,
@@ -17,21 +18,27 @@ import {
   isTerminalStatus,
 } from "../lib/format";
 import {
-  assetHealth,
+  assetHealthFromPriorities,
   cisControl,
   customerTimeline,
   groupAssetsByType,
-  prioritizedFindings,
   resourceDisplayName,
   resourceLabel,
   riskHeadline,
-  riskSummary,
+  riskSummary as findingRiskSummary,
   scanDurationLabel,
-  severityCounts,
-  uniqueIssuesByPolicy,
 } from "../lib/securityPresentation";
 import { StatusBadge } from "../components/ui/StatusBadge";
-import type { Asset, ControlResult, Finding, ScanCompliance, TimelineEvent } from "../types/platform";
+import type {
+  Asset,
+  ControlResult,
+  Finding,
+  FixPriorityItem,
+  ScanCompliance,
+  ScanRiskSummary,
+  TimelineEvent,
+  TopRiskItem,
+} from "../types/platform";
 
 type Tab = "overview" | "issues" | "resources" | "compliance" | "timeline";
 
@@ -41,30 +48,45 @@ export function ScanDetailPage() {
   const { scan, error: pollError, loading: pollLoading } = useScanPolling(authHeaders, scanId);
   const [tab, setTab] = useState<Tab>("overview");
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [findingsLoaded, setFindingsLoaded] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [compliance, setCompliance] = useState<ScanCompliance | null>(null);
+  const [scanRiskSummary, setScanRiskSummary] = useState<ScanRiskSummary | null>(null);
+  const [fixPriorities, setFixPriorities] = useState<FixPriorityItem[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
 
   const terminal = scan ? isTerminalStatus(scan.status) : false;
   const fails = findings.filter((f) => f.result === "fail");
-  const severity = severityCounts(fails);
+  const failCount = scanRiskSummary?.total_findings ?? fails.length;
+  const severity: Record<string, number> = scanRiskSummary
+    ? {
+        critical: scanRiskSummary.critical,
+        high: scanRiskSummary.high,
+        medium: scanRiskSummary.medium,
+        low: scanRiskSummary.low,
+        info: scanRiskSummary.info,
+      }
+    : { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const topRisks: TopRiskItem[] = scanRiskSummary?.top_risks ?? [];
 
   useEffect(() => {
     if (!scanId || !terminal) return;
     let cancelled = false;
     async function loadDetails() {
       try {
-        const [f, a, comp, tl] = await Promise.all([
-          listFindings(authHeaders, scanId!),
+        const [a, comp, experience, tl] = await Promise.all([
           listAssets(authHeaders, scanId!),
           getScanCompliance(authHeaders, scanId!),
+          loadScanExperience(authHeaders, scanId!),
           getScanTimeline(authHeaders, scanId!),
         ]);
         if (cancelled) return;
-        setFindings(f);
         setAssets(a);
         setCompliance(comp);
+        setScanRiskSummary(experience.summary);
+        setFixPriorities(experience.priorities);
         setTimeline(tl);
         setLoadError(null);
       } catch (e) {
@@ -76,6 +98,24 @@ export function ScanDetailPage() {
       cancelled = true;
     };
   }, [authHeaders, scanId, terminal]);
+
+  useEffect(() => {
+    if (!scanId || !terminal || tab !== "issues" || findingsLoaded) return;
+    let cancelled = false;
+    listFindings(authHeaders, scanId, { result: "fail" })
+      .then((rows) => {
+        if (!cancelled) {
+          setFindings(rows);
+          setFindingsLoaded(true);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load issues");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authHeaders, scanId, terminal, tab, findingsLoaded]);
 
   if (pollLoading && !scan) {
     return <p className="text-slate-500">Loading scan…</p>;
@@ -91,7 +131,7 @@ export function ScanDetailPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
-    { id: "issues", label: `Issues (${fails.length})` },
+    { id: "issues", label: `Issues (${failCount})` },
     { id: "resources", label: `Resources (${assets.length})` },
     { id: "compliance", label: "CIS compliance" },
     { id: "timeline", label: "Timeline" },
@@ -100,7 +140,6 @@ export function ScanDetailPage() {
   const duration = scanDurationLabel(scan.started_at, scan.completed_at);
   const customerTl = customerTimeline(timeline);
   const resourceGroups = groupAssetsByType(assets);
-  const topFailures = uniqueIssuesByPolicy(fails);
 
   return (
     <div className="space-y-6">
@@ -147,13 +186,13 @@ export function ScanDetailPage() {
       {tab === "overview" && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            {compliance && <ScoreRing score={compliance.score} />}
+            <ScoreRing score={scanRiskSummary?.score ?? compliance?.score ?? null} />
             <div>
               <p className="text-sm text-slate-500">Overall security score</p>
               <p className="mt-1 text-lg font-medium text-slate-900">
-                {fails.length === 0
+                {failCount === 0
                   ? "No open issues"
-                  : `${fails.length} security issue${fails.length !== 1 ? "s" : ""} found`}
+                  : `${failCount} security issue${failCount !== 1 ? "s" : ""} found`}
               </p>
               <div className="mt-3">
                 <SeverityPills counts={severity} />
@@ -161,27 +200,29 @@ export function ScanDetailPage() {
             </div>
           </div>
 
-          {topFailures.length > 0 && (
+          {topRisks.length > 0 && (
             <section className="space-y-2">
               <h2 className="font-semibold text-slate-900">Top issues</h2>
-              {topFailures.slice(0, 3).map((f, i) => (
-                <IssueListItem key={f.id} finding={f} scanId={scanId!} index={i + 1} />
+              {topRisks.slice(0, 3).map((risk, i) => (
+                <TopRiskListItem key={risk.finding_id} risk={risk} scanId={scanId!} index={i + 1} />
               ))}
             </section>
           )}
 
           <section className="space-y-2">
             <h2 className="font-semibold text-slate-900">What should I fix first?</h2>
-            <PriorityFixList findings={prioritizedFindings(fails)} scanId={scanId!} limit={3} />
+            <PriorityFixList items={fixPriorities} scanId={scanId!} limit={3} />
           </section>
         </div>
       )}
 
       {tab === "issues" && (
         <div className="space-y-4">
-          {fails.length === 0 ? (
+          {!findingsLoaded && <p className="text-slate-500">Loading issues…</p>}
+          {findingsLoaded && fails.length === 0 && (
             <p className="text-slate-500">No security issues in this scan.</p>
-          ) : (
+          )}
+          {findingsLoaded &&
             fails.map((f) => (
               <Link
                 key={f.id}
@@ -192,21 +233,21 @@ export function ScanDetailPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900">{riskHeadline(f)}</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Affected resource: <span className="font-medium">{resourceDisplayName(f)}</span>
+                      Affected resource:{" "}
+                      <span className="font-medium">{resourceDisplayName(f)}</span>
                     </p>
                   </div>
                   <SeverityBadge severity={f.severity} />
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <InfoBlock label="Risk" value={riskSummary(f)} />
+                  <InfoBlock label="Risk" value={findingRiskSummary(f)} />
                   {cisControl(f) && (
                     <InfoBlock label="Compliance" value={`Fails ${cisControl(f)}`} />
                   )}
                 </div>
                 <p className="mt-3 text-sm font-medium text-indigo-600">View details →</p>
               </Link>
-            ))
-          )}
+            ))}
         </div>
       )}
 
@@ -220,7 +261,8 @@ export function ScanDetailPage() {
               <ul className="mt-2 space-y-1 text-sm text-slate-600">
                 {resourceGroups.map((g) => (
                   <li key={g.type}>
-                    {g.count} {g.label}{g.count !== 1 ? "s" : ""}
+                    {g.count} {g.label}
+                    {g.count !== 1 ? "s" : ""}
                   </li>
                 ))}
               </ul>
@@ -229,24 +271,55 @@ export function ScanDetailPage() {
 
           <div className="space-y-3">
             {assets.map((a) => {
-              const health = assetHealth(a, findings);
+              const health = assetHealthFromPriorities(a.resource_id, fixPriorities);
+              const resourceIssues = fixPriorities.filter((p) => p.resource_id === a.resource_id);
               const name =
                 (a.properties?.name as string) ??
                 (a.properties?.bucket_name as string) ??
                 a.resource_id.split("/").pop();
+              const isExpanded = expandedResource === a.resource_id;
               return (
                 <div
                   key={a.resource_id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
+                  className="rounded-lg border border-slate-200 bg-white shadow-sm"
                 >
-                  <div>
-                    <p className="font-medium text-slate-900">{name}</p>
-                    <p className="text-sm text-slate-500">
-                      {resourceLabel(a.resource_type)}
-                      {a.region ? ` · ${a.region}` : ""}
-                    </p>
-                  </div>
-                  <HealthBadge health={health} />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedResource(isExpanded ? null : a.resource_id)
+                    }
+                    className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">{name}</p>
+                      <p className="text-sm text-slate-500">
+                        {resourceLabel(a.resource_type)}
+                        {a.region ? ` · ${a.region}` : ""}
+                        {resourceIssues.length > 0 && (
+                          <span className="ml-2 text-red-600">
+                            · {resourceIssues.length} issue
+                            {resourceIssues.length !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <HealthBadge health={health} />
+                  </button>
+                  {isExpanded && resourceIssues.length > 0 && (
+                    <ul className="border-t border-slate-100 px-4 py-3 text-sm">
+                      {resourceIssues.map((issue) => (
+                        <li key={issue.finding_id} className="py-1">
+                          <Link
+                            to={`/scans/${scanId}/findings/${issue.finding_id}`}
+                            className="text-indigo-600 hover:underline"
+                          >
+                            {issue.display_title}
+                          </Link>
+                          <span className="ml-2 text-slate-400 capitalize">{issue.severity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               );
             })}
@@ -278,17 +351,17 @@ export function ScanDetailPage() {
             />
           </div>
 
-          {topFailures.length > 0 && (
+          {topRisks.length > 0 && (
             <section className="space-y-2">
               <h3 className="font-semibold text-slate-900">Top failures</h3>
-              {topFailures.slice(0, 6).map((f) => (
+              {topRisks.slice(0, 6).map((risk) => (
                 <Link
-                  key={f.id}
-                  to={`/scans/${scanId}/findings/${f.id}`}
+                  key={risk.finding_id}
+                  to={`/scans/${scanId}/findings/${risk.finding_id}`}
                   className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 px-4 py-2 hover:bg-red-50"
                 >
-                  <span className="font-medium text-slate-900">{riskHeadline(f)}</span>
-                  <SeverityBadge severity={f.severity} />
+                  <span className="font-medium text-slate-900">{risk.title}</span>
+                  <SeverityBadge severity={risk.severity} />
                 </Link>
               ))}
             </section>

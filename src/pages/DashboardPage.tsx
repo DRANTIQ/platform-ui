@@ -1,35 +1,25 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { PriorityFixList, IssueListItem } from "../components/security/PriorityFixList";
+import { PriorityFixList, TopRiskListItem } from "../components/security/PriorityFixList";
 import { ScoreRing, SeverityPills } from "../components/security/SeverityBadge";
 import {
-  getScanCompliance,
   listAssets,
-  listFindings,
   listIntegrations,
   listScans,
 } from "../lib/api";
 import { formatRelativeTime } from "../lib/format";
-import {
-  accountRiskSummary,
-  prioritizedFindings,
-  severityCounts,
-  totalFixMinutes,
-  uniqueIssuesByPolicy,
-} from "../lib/securityPresentation";
-import type { Scan } from "../types/platform";
+import { loadScanExperience } from "../lib/scanExperience";
+import { accountRiskSummary } from "../lib/securityPresentation";
+import type { FixPriorityItem, Scan, ScanRiskSummary, TopRiskItem } from "../types/platform";
 
 export function DashboardPage() {
   const { authHeaders } = useAuth();
   const [scans, setScans] = useState<Scan[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [score, setScore] = useState<number | null>(null);
-  const [failCount, setFailCount] = useState(0);
+  const [riskSummary, setRiskSummary] = useState<ScanRiskSummary | null>(null);
+  const [priorities, setPriorities] = useState<FixPriorityItem[]>([]);
   const [resourceCount, setResourceCount] = useState(0);
-  const [severity, setSeverity] = useState<Record<string, number>>({});
-  const [topIssues, setTopIssues] = useState<ReturnType<typeof uniqueIssuesByPolicy>>([]);
-  const [priorities, setPriorities] = useState<ReturnType<typeof prioritizedFindings>>([]);
   const [fixMinutes, setFixMinutes] = useState(0);
   const [latestScanId, setLatestScanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,21 +46,18 @@ export function DashboardPage() {
         }
         setLatestScanId(latest.id);
 
-        const [comp, findings, assets] = await Promise.all([
-          getScanCompliance(authHeaders, latest.id),
-          listFindings(authHeaders, latest.id, { result: "fail" }),
+        const [{ summary, priorities: fixList }, assets] = await Promise.all([
+          loadScanExperience(authHeaders, latest.id),
           listAssets(authHeaders, latest.id),
         ]);
         if (cancelled) return;
 
-        const fails = findings.filter((f) => f.result === "fail");
-        setScore(comp.score);
-        setFailCount(fails.length);
+        setRiskSummary(summary);
+        setPriorities(fixList);
         setResourceCount(assets.length);
-        setSeverity(severityCounts(fails));
-        setTopIssues(uniqueIssuesByPolicy(fails));
-        setPriorities(prioritizedFindings(fails));
-        setFixMinutes(totalFixMinutes(fails));
+        setFixMinutes(
+          fixList.reduce((sum, item) => sum + (item.estimated_fix_minutes ?? 0), 0),
+        );
         setError(null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -85,6 +72,17 @@ export function DashboardPage() {
   }, [authHeaders]);
 
   const latest = scans[0];
+  const failCount = riskSummary?.total_findings ?? 0;
+  const severity: Record<string, number> = riskSummary
+    ? {
+        critical: riskSummary.critical,
+        high: riskSummary.high,
+        medium: riskSummary.medium,
+        low: riskSummary.low,
+        info: riskSummary.info,
+      }
+    : { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const topRisks: TopRiskItem[] = riskSummary?.top_risks ?? [];
 
   if (loading) {
     return <p className="text-slate-500">Loading security overview…</p>;
@@ -99,7 +97,7 @@ export function DashboardPage() {
     );
   }
 
-  if (!latestScanId || score == null) {
+  if (!latestScanId) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold text-slate-900">Security overview</h1>
@@ -113,7 +111,6 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Hero risk banner */}
       <section className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
@@ -145,13 +142,12 @@ export function DashboardPage() {
             )}
           </div>
           <div className="flex flex-col items-center gap-2">
-            <ScoreRing score={score} />
+            <ScoreRing score={riskSummary?.score ?? null} />
             <p className="text-xs font-medium text-slate-500">Overall security score</p>
           </div>
         </div>
       </section>
 
-      {/* Summary stats */}
       <div className="grid gap-4 sm:grid-cols-4">
         <StatCard label="Critical" value={String(severity.critical ?? 0)} alert={severity.critical > 0} />
         <StatCard label="High" value={String(severity.high ?? 0)} />
@@ -159,25 +155,22 @@ export function DashboardPage() {
         <StatCard label="Compliance failures" value={String(failCount)} />
       </div>
 
-      {/* Top business risks */}
-      {topIssues.length > 0 && (
+      {topRisks.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-slate-900">Top business risks</h2>
           <div className="space-y-2">
-            {topIssues.slice(0, 5).map((f, i) => (
-              <IssueListItem key={f.id} finding={f} scanId={latestScanId} index={i + 1} />
+            {topRisks.slice(0, 5).map((risk, i) => (
+              <TopRiskListItem key={risk.finding_id} risk={risk} scanId={latestScanId} index={i + 1} />
             ))}
           </div>
         </section>
       )}
 
-      {/* What should I fix first */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">What should I fix first?</h2>
-        <PriorityFixList findings={priorities} scanId={latestScanId} limit={3} />
+        <PriorityFixList items={priorities} scanId={latestScanId} limit={3} />
       </section>
 
-      {/* Recent scan footer */}
       {latest && (
         <section className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">

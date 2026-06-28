@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { Finding } from "../../types/platform";
+import type { Finding, FixPriorityItem, TopRiskItem } from "../../types/platform";
 import {
   estimatedFixMinutes,
   fixInstruction,
@@ -9,15 +9,15 @@ import {
 import { SeverityBadge } from "./SeverityBadge";
 
 export function PriorityFixList({
-  findings,
+  items,
   scanId,
   limit = 5,
 }: {
-  findings: Finding[];
+  items: FixPriorityItem[];
   scanId: string;
   limit?: number;
 }) {
-  if (findings.length === 0) {
+  if (items.length === 0) {
     return (
       <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-6 text-sm text-emerald-800">
         No open security issues — your latest scan looks good.
@@ -27,25 +27,32 @@ export function PriorityFixList({
 
   return (
     <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-sm">
-      {findings.slice(0, limit).map((f, i) => (
-        <div key={f.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+      {items.slice(0, limit).map((item) => (
+        <div
+          key={item.finding_id}
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+        >
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Priority {i + 1}
+              Priority {item.rank}
             </p>
             <Link
-              to={`/scans/${scanId}/findings/${f.id}`}
+              to={`/scans/${scanId}/findings/${item.finding_id}`}
               className="mt-0.5 block font-medium text-slate-900 hover:text-indigo-600"
             >
-              {riskHeadline(f)}
+              {item.display_title}
             </Link>
-            <p className="mt-1 text-sm text-slate-500">{fixInstruction(f)}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {item.why_it_matters ?? item.affected_resource}
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <SeverityBadge severity={f.severity} />
-            <span className="text-sm text-slate-500">{estimatedFixMinutes(f)} min</span>
+            <SeverityBadge severity={item.severity} />
+            <span className="text-sm text-slate-500">
+              {item.estimated_fix_minutes ?? "—"} min
+            </span>
             <Link
-              to={`/scans/${scanId}/findings/${f.id}`}
+              to={`/scans/${scanId}/findings/${item.finding_id}`}
               className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
             >
               Fix now
@@ -57,6 +64,38 @@ export function PriorityFixList({
   );
 }
 
+export function TopRiskListItem({
+  risk,
+  scanId,
+  index,
+}: {
+  risk: TopRiskItem;
+  scanId: string;
+  index?: number;
+}) {
+  return (
+    <Link
+      to={`/scans/${scanId}/findings/${risk.finding_id}`}
+      className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 hover:border-indigo-200 hover:bg-indigo-50/30"
+    >
+      {index != null && (
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">
+          {index}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-slate-900">{risk.title}</p>
+        <p className="mt-0.5 text-sm text-slate-500">
+          {risk.affected_resource}
+          {risk.why_it_matters ? ` · ${risk.why_it_matters}` : ""}
+        </p>
+      </div>
+      <SeverityBadge severity={risk.severity} />
+    </Link>
+  );
+}
+
+/** @deprecated Use TopRiskListItem with API top_risks instead */
 export function IssueListItem({
   finding,
   scanId,
@@ -83,4 +122,34 @@ export function IssueListItem({
       <SeverityBadge severity={finding.severity} />
     </Link>
   );
+}
+
+/** Legacy helper for finding-based priority rows */
+export function LegacyPriorityFixList({
+  findings,
+  scanId,
+  limit = 5,
+}: {
+  findings: Finding[];
+  scanId: string;
+  limit?: number;
+}) {
+  const items: FixPriorityItem[] = findings.map((f, i) => ({
+    rank: i + 1,
+    finding_id: f.id,
+    policy_id: f.policy_id,
+    display_title: riskHeadline(f),
+    technical_title: f.technical_title ?? f.title,
+    severity: f.severity,
+    affected_resource: resourceDisplayName(f),
+    resource_id: f.resource_id,
+    resource_type: f.resource_type,
+    why_it_matters: fixInstruction(f),
+    business_impact: null,
+    estimated_fix_minutes: estimatedFixMinutes(f),
+    frameworks: [],
+    internet_exposed: false,
+    data_sensitive: false,
+  }));
+  return <PriorityFixList items={items} scanId={scanId} limit={limit} />;
 }

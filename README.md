@@ -47,6 +47,26 @@ npm run dev
 
 Open http://localhost:5173 → redirects to **Sign in**.
 
+## Deploy to Vercel (app.drantiq.ai)
+
+Vite env vars are **baked in at build time**. Set these on the Vercel project, then redeploy:
+
+| Variable | Example |
+|----------|---------|
+| `VITE_API_URL` | `https://api.drantiq.ai` — **not** `https://app.drantiq.ai` |
+| `VITE_AUTH_MODE` | `supabase` |
+| `VITE_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
+
+This repo includes `vercel.json` so routes like `/login` and `/scans/:id` serve `index.html` (SPA fallback).
+
+Supabase Dashboard → **Authentication → URL configuration**:
+
+- **Site URL:** `https://app.drantiq.ai`
+- **Redirect URLs:** `https://app.drantiq.ai/**`
+
+If login succeeds but the dashboard fails, confirm `https://api.drantiq.ai/health` returns `healthy` and CORS allows your UI origin.
+
 ### Auth modes
 
 | `VITE_AUTH_MODE` | Behavior |

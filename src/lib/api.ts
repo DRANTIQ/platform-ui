@@ -2,10 +2,14 @@ import type {
   Asset,
   ControlResult,
   Finding,
+  FindingDetail,
+  FixPriorityItem,
   Integration,
   MeResponse,
+  ResourceRisk,
   Scan,
   ScanCompliance,
+  ScanRiskSummary,
   TimelineEvent,
 } from "../types/platform";
 
@@ -41,6 +45,27 @@ export type AuthHeaders = {
   bearerToken?: string;
 };
 
+function getApiBase(): string {
+  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? "";
+  if (!raw) {
+    throw new ApiError(
+      "VITE_API_URL is not configured. Set it in Vercel Environment Variables and redeploy.",
+      0,
+    );
+  }
+  const base = raw.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    const uiOrigin = window.location.origin.replace(/\/$/, "");
+    if (base === uiOrigin) {
+      throw new ApiError(
+        "VITE_API_URL must be your API host (e.g. https://api.drantiq.ai), not the UI domain.",
+        0,
+      );
+    }
+  }
+  return base;
+}
+
 async function request<T>(
   auth: AuthHeaders,
   path: string,
@@ -50,7 +75,7 @@ async function request<T>(
     params?: Record<string, string | number | boolean | undefined>;
   },
 ): Promise<T> {
-  const base = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+  const base = getApiBase();
   const url = new URL(path, `${base}/`);
   if (options?.params) {
     for (const [k, v] of Object.entries(options.params)) {
@@ -81,8 +106,7 @@ async function request<T>(
 }
 
 export function checkHealth(): Promise<{ status: string }> {
-  const base = import.meta.env.VITE_API_URL.replace(/\/$/, "");
-  return fetch(`${base}/health`).then((r) => r.json());
+  return fetch(`${getApiBase()}/health`).then((r) => r.json());
 }
 
 export function getMe(auth: AuthHeaders): Promise<MeResponse> {
@@ -131,6 +155,29 @@ export function getScanCompliance(auth: AuthHeaders, scanId: string): Promise<Sc
   return request(auth, `/v1/compliance/frameworks/${frameworkId}/scans/${scanId}`);
 }
 
+export function getScanRiskSummary(auth: AuthHeaders, scanId: string): Promise<ScanRiskSummary> {
+  return request(auth, `/v1/scans/${scanId}/risk-summary`);
+}
+
+export function getScanFixPriorities(
+  auth: AuthHeaders,
+  scanId: string,
+  limit = 20,
+): Promise<FixPriorityItem[]> {
+  const capped = Math.min(Math.max(limit, 1), 100);
+  return request(auth, `/v1/scans/${scanId}/fix-priorities`, { params: { limit: capped } });
+}
+
+export function getAssetRisk(
+  auth: AuthHeaders,
+  scanId: string,
+  resourceId: string,
+): Promise<ResourceRisk> {
+  return request(auth, `/v1/assets/${encodeURIComponent(resourceId)}/risk`, {
+    params: { scan_id: scanId },
+  });
+}
+
 export function listFindings(
   auth: AuthHeaders,
   scanId: string,
@@ -145,7 +192,7 @@ export function getFinding(
   auth: AuthHeaders,
   scanId: string,
   findingId: string,
-): Promise<Finding> {
+): Promise<FindingDetail> {
   return request(auth, `/v1/findings/${findingId}`, { params: { scan_id: scanId } });
 }
 
@@ -164,4 +211,4 @@ export function listAssets(
   });
 }
 
-export type { ControlResult };
+export type { ControlResult, FindingDetail, FixPriorityItem, ResourceRisk, ScanRiskSummary };
