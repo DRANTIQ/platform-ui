@@ -22,11 +22,11 @@ export function AppShell() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-8">
             <Link to="/" className="text-lg font-semibold tracking-tight text-slate-900">
-              Platform
+              Drantiq
             </Link>
             <nav className="flex gap-5">
               <NavLink to="/" end className={navCls}>
-                Dashboard
+                Security
               </NavLink>
               <NavLink to="/scans" className={navCls}>
                 Scans

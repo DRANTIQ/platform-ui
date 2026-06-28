@@ -39,7 +39,7 @@ JWT Secret: Supabase Dashboard → **Project Settings → API → JWT Secret** (
 ### UI setup
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 # Set VITE_AUTH_MODE=supabase, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 npm install
 npm run dev

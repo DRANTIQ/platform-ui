@@ -47,3 +47,24 @@ export function formatDate(iso: string | null | undefined): string {
 export function shortId(id: string): string {
   return id.length > 8 ? `${id.slice(0, 8)}…` : id;
 }
+
+export function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const sec = Math.round(diff / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} minute${min !== 1 ? "s" : ""} ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} hour${hr !== 1 ? "s" : ""} ago`;
+  const day = Math.floor(hr / 24);
+  return `${day} day${day !== 1 ? "s" : ""} ago`;
+}
+
+export function formatDurationMs(ms: number): string {
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec} second${sec !== 1 ? "s" : ""}`;
+  const min = Math.floor(sec / 60);
+  const rem = sec % 60;
+  return rem ? `${min} minute${min !== 1 ? "s" : ""} ${rem} seconds` : `${min} minute${min !== 1 ? "s" : ""}`;
+}

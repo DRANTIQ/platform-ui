@@ -25,6 +25,18 @@ export type Integration = {
   updated_at: string;
 };
 
+export type FindingRemediation = {
+  headline: string | null;
+  risk_summary: string | null;
+  business_impact: string | null;
+  fix_summary: string | null;
+  estimated_fix_minutes: number | null;
+  framework_mappings: string[];
+  aws_cli: string | null;
+  terraform: string | null;
+  cloudformation: string | null;
+};
+
 export type Finding = {
   id: string;
   policy_id: string;
@@ -36,6 +48,7 @@ export type Finding = {
   title: string;
   description: string | null;
   evidence: Record<string, unknown>;
+  remediation?: FindingRemediation;
   evaluated_at: string;
   created_at: string;
 };

@@ -1,22 +1,11 @@
 node_modules
 dist
-.env
-.env.*
-*.local
-# Dependencies
-node_modules/
+dist-ssr
+build
 .pnp
 .pnp.js
 
-# Build
-dist/
-dist-ssr/
-build/
-*.local
-
-# Env
-node_modules
-dist
+# Env — .env only (never commit secrets)
 .env
 .env.*
 !.env.example
@@ -28,8 +17,8 @@ yarn-error.log*
 pnpm-debug.log*
 
 # IDE
-.idea/
-.vscode/
+.idea
+.vscode
 *.swp
 
 # OS
@@ -37,8 +26,7 @@ pnpm-debug.log*
 Thumbs.db
 
 # Test / coverage
-coverage/
+coverage
 
 # Vite
-.vite/
-*.local
+.vite
