@@ -28,7 +28,7 @@ import { hasAuthHashInUrl } from "../lib/authRedirect";
 import { isOnboardingComplete } from "../lib/onboarding";
 import { isSupabaseAuth } from "../lib/config";
 import { sleep } from "../lib/retry";
-import { getSupabase, supabaseEmailRedirectTo } from "../lib/supabase";
+import { getSupabase, supabaseEmailRedirectTo, supabasePasswordResetRedirectTo } from "../lib/supabase";
 import type { MeResponse } from "../types/platform";
 
 type AuthContextValue = {
@@ -52,6 +52,8 @@ type AuthContextValue = {
   createWorkspace: (workspaceName: string) => Promise<void>;
   acceptInvite: (token: string) => Promise<void>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   refreshMe: () => Promise<MeResponse | null>;
   setDevAuth: (tenantId: string, role: DevRole) => void;
   authError: string | null;
@@ -235,6 +237,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
   }, [supabaseMode]);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: supabasePasswordResetRedirectTo(),
+    });
+    if (error) throw new Error(error.message);
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(error.message);
+  }, []);
+
   const setDevAuth = useCallback((tenantId: string, role: DevRole) => {
     saveDevAuth(tenantId, role);
     setDevTenantId(tenantId);
@@ -272,6 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         createWorkspace: createWorkspaceForUser,
         acceptInvite,
         signOut,
+        requestPasswordReset,
+        updatePassword,
         refreshMe,
         setDevAuth,
         authError,
@@ -310,6 +328,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
       },
       signOut: async () => undefined,
+      requestPasswordReset: async () => {
+        throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
+      },
+      updatePassword: async () => {
+        throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
+      },
       refreshMe: async () => null,
       setDevAuth,
       authError: null,
@@ -326,6 +350,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     createWorkspaceForUser,
     acceptInvite,
     signOut,
+    requestPasswordReset,
+    updatePassword,
     refreshMe,
     setDevAuth,
     authError,

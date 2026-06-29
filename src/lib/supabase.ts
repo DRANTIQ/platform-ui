@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { authCallbackUrl } from "./authRedirect";
+import { authCallbackUrl, passwordResetUrl } from "./authRedirect";
 import { config, isSupabaseAuth } from "./config";
 
 let client: SupabaseClient | null = null;
@@ -24,9 +24,13 @@ export function getSupabase(): SupabaseClient {
   return client;
 }
 
-/** Used in signUp emailRedirectTo — must match Supabase Auth → URL Configuration allowlist. */
+/** Used in signUp / password reset — must match Supabase Auth → URL Configuration allowlist. */
 export function supabaseEmailRedirectTo(): string {
   return authCallbackUrl();
+}
+
+export function supabasePasswordResetRedirectTo(): string {
+  return passwordResetUrl();
 }
 
 /** Issuer claim for seed_identity_membership.py — must match JWT `iss`. */

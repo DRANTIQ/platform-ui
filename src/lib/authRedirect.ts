@@ -5,8 +5,20 @@ export function authCallbackUrl(): string {
   return `${origin}/auth/callback`;
 }
 
+export function passwordResetUrl(): string {
+  const configured = (import.meta.env.VITE_APP_URL as string | undefined)?.trim();
+  const origin = configured ? configured.replace(/\/$/, "") : window.location.origin;
+  return `${origin}/reset-password`;
+}
+
 export function hasAuthHashInUrl(): boolean {
   return typeof window !== "undefined" && window.location.hash.includes("access_token");
+}
+
+export function isPasswordRecoveryHash(): boolean {
+  if (typeof window === "undefined") return false;
+  const hash = window.location.hash;
+  return hash.includes("access_token") && hash.includes("type=recovery");
 }
 
 export function clearAuthHashFromUrl(): void {

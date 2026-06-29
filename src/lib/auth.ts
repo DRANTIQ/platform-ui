@@ -41,3 +41,23 @@ export function roleLabel(role: DevRole): string {
       return "Super Admin";
   }
 }
+
+/** Two-letter avatar initials from email or display name. */
+export function userInitials(email: string | null, workspaceName?: string | null): string {
+  if (workspaceName?.trim()) {
+    const parts = workspaceName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return workspaceName.slice(0, 2).toUpperCase();
+  }
+  if (email) {
+    const local = email.split("@")[0] ?? "";
+    const parts = local.split(/[._-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return local.slice(0, 2).toUpperCase() || "?";
+  }
+  return "?";
+}

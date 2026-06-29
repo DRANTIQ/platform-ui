@@ -14,6 +14,9 @@ const PUBLIC_PATHS = new Set([
   "/signup/verify",
   "/create-workspace",
   "/accept-invite",
+  "/forgot-password",
+  "/reset-password",
+  "/auth/callback",
 ]);
 
 export function ProtectedRoute({ children, requireOnboarding = true }: ProtectedRouteProps) {

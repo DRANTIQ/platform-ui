@@ -6,6 +6,9 @@ import { WelcomeLayout } from "./components/welcome/WelcomeLayout";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { AccountPage } from "./pages/AccountPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { CreateWorkspacePage } from "./pages/CreateWorkspacePage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -30,6 +33,8 @@ export default function App() {
         <AuthHashRedirect />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/me" element={<Navigate to="/login" replace />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -63,6 +68,7 @@ export default function App() {
             <Route path="scans/:scanId" element={<ScanDetailPage />} />
             <Route path="scans/:scanId/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="team" element={<TeamPage />} />
+            <Route path="account" element={<AccountPage />} />
             {!isSupabaseAuth() && <Route path="dev" element={<DevAuthPage />} />}
           </Route>
 
