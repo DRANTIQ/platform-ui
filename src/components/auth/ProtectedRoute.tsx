@@ -1,10 +1,32 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { welcomePathForState } from "../../lib/onboarding";
 import { isSupabaseAuth } from "../../lib/config";
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { loading, isAuthenticated, needsProvisioning } = useAuth();
+type ProtectedRouteProps = {
+  children: React.ReactNode;
+  requireOnboarding?: boolean;
+};
+
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/signup",
+  "/signup/verify",
+  "/create-workspace",
+  "/accept-invite",
+]);
+
+export function ProtectedRoute({ children, requireOnboarding = true }: ProtectedRouteProps) {
+  const {
+    loading,
+    hasSession,
+    isAuthenticated,
+    needsWorkspace,
+    onboardingComplete,
+    onboardingState,
+  } = useAuth();
   const location = useLocation();
+  const onWelcome = location.pathname.startsWith("/welcome");
 
   if (!isSupabaseAuth()) {
     return children;
@@ -18,21 +40,24 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (needsProvisioning) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-lg font-semibold text-slate-900">Account not provisioned</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Login succeeded but no tenant membership exists. Run{" "}
-          <code className="rounded bg-slate-100 px-1">seed_identity_membership.py</code> with your
-          Supabase user <code className="rounded bg-slate-100 px-1">sub</code>.
-        </p>
-      </div>
-    );
+  if (!hasSession && !PUBLIC_PATHS.has(location.pathname)) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  if (!isAuthenticated) {
+  if (hasSession && needsWorkspace && location.pathname !== "/create-workspace") {
+    return <Navigate to="/create-workspace" replace />;
+  }
+
+  if (!isAuthenticated && !PUBLIC_PATHS.has(location.pathname)) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+
+  if (isAuthenticated && requireOnboarding && !onboardingComplete && !onWelcome) {
+    return <Navigate to={welcomePathForState(onboardingState)} replace />;
+  }
+
+  if (isAuthenticated && !requireOnboarding && onboardingComplete && onWelcome) {
+    return <Navigate to="/" replace />;
   }
 
   return children;

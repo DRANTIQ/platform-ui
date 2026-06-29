@@ -5,12 +5,16 @@ import type {
   FindingDetail,
   FixPriorityItem,
   Integration,
+  Invitation,
+  InvitationPreview,
   MeResponse,
   ResourceRisk,
   Scan,
   ScanCompliance,
   ScanRiskSummary,
   TimelineEvent,
+  WorkspaceCreateResponse,
+  WorkspaceSummary,
 } from "../types/platform";
 
 export class ApiError extends Error {
@@ -111,6 +115,65 @@ export function checkHealth(): Promise<{ status: string }> {
 
 export function getMe(auth: AuthHeaders): Promise<MeResponse> {
   return request(auth, "/v1/me");
+}
+
+export function createWorkspace(
+  bearerToken: string,
+  workspaceName: string,
+): Promise<WorkspaceCreateResponse> {
+  return request(
+    { tenantId: "", role: "viewer", bearerToken },
+    "/v1/workspaces",
+    { method: "POST", body: { workspace_name: workspaceName } },
+  );
+}
+
+export function updateOnboardingState(
+  auth: AuthHeaders,
+  onboardingState: string,
+): Promise<WorkspaceSummary> {
+  return request(auth, "/v1/workspaces/current/onboarding", {
+    method: "PATCH",
+    body: { onboarding_state: onboardingState },
+  });
+}
+
+export function previewInvitation(token: string): Promise<InvitationPreview> {
+  const base = getApiBase();
+  return fetch(`${base}/v1/invitations/preview?token=${encodeURIComponent(token)}`).then(async (res) => {
+    if (!res.ok) {
+      const text = await res.text();
+      throw new ApiError(parseApiError(text, res.statusText), res.status);
+    }
+    return res.json() as Promise<InvitationPreview>;
+  });
+}
+
+export function acceptInvitation(bearerToken: string, token: string): Promise<{
+  workspace: WorkspaceSummary;
+  membership: { id: string; role: string; status: string };
+  next_path: string;
+}> {
+  return request(
+    { tenantId: "", role: "viewer", bearerToken },
+    "/v1/invitations/accept",
+    { method: "POST", body: { token } },
+  );
+}
+
+export function listInvitations(auth: AuthHeaders): Promise<Invitation[]> {
+  return request(auth, "/v1/invitations");
+}
+
+export function createInvitation(
+  auth: AuthHeaders,
+  body: { email: string; role: string },
+): Promise<Invitation> {
+  return request(auth, "/v1/invitations", { method: "POST", body });
+}
+
+export function revokeInvitation(auth: AuthHeaders, invitationId: string): Promise<Invitation> {
+  return request(auth, `/v1/invitations/${invitationId}`, { method: "DELETE" });
 }
 
 export function listIntegrations(auth: AuthHeaders): Promise<Integration[]> {

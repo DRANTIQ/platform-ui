@@ -143,8 +143,26 @@ export function ScansPage() {
           <tbody className="divide-y divide-slate-100">
             {scans.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-slate-400">
-                  No scans yet
+                <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                  {integrations.length === 0 ? (
+                    <>
+                      Connect your AWS account to begin your first security assessment.{" "}
+                      <Link to="/integrations" className="font-medium text-indigo-600 hover:underline">
+                        Connect AWS
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      Run your first scan to identify cloud security risks.{" "}
+                      <button
+                        type="button"
+                        onClick={handleRunScan}
+                        className="font-medium text-indigo-600 hover:underline"
+                      >
+                        Start scan
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             )}

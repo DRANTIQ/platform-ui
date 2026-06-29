@@ -24,6 +24,7 @@ export function DashboardPage() {
   const [latestScanId, setLatestScanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasIntegration, setHasIntegration] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +36,7 @@ export function DashboardPage() {
         ]);
         if (cancelled) return;
         setScans(rows);
+        setHasIntegration(integrations.length > 0);
         if (integrations[0]) setAccountId(integrations[0].account_id);
 
         const latest = rows.find(
@@ -101,10 +103,33 @@ export function DashboardPage() {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold text-slate-900">Security overview</h1>
-        <p className="text-slate-500">Run your first scan to see security risks and compliance.</p>
-        <Link to="/scans" className="inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
-          Go to Scans
-        </Link>
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          {!hasIntegration ? (
+            <>
+              <p className="text-slate-600">
+                Connect your AWS account to begin your first security assessment.
+              </p>
+              <Link
+                to="/integrations"
+                className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              >
+                Connect AWS account
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="text-slate-600">
+                Run your first scan to identify cloud security risks in your AWS account.
+              </p>
+              <Link
+                to="/scans"
+                className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              >
+                Run first scan
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     );
   }

@@ -9,7 +9,13 @@ import {
   type ReactNode,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { getMe, type AuthHeaders } from "../lib/api";
+import {
+  acceptInvitation,
+  ApiError,
+  createWorkspace,
+  getMe,
+  type AuthHeaders,
+} from "../lib/api";
 import {
   canWrite,
   defaultTenantId,
@@ -18,6 +24,7 @@ import {
   saveDevAuth,
   type DevRole,
 } from "../lib/auth";
+import { isOnboardingComplete } from "../lib/onboarding";
 import { isSupabaseAuth } from "../lib/config";
 import { sleep } from "../lib/retry";
 import { getSupabase } from "../lib/supabase";
@@ -27,20 +34,33 @@ type AuthContextValue = {
   mode: "dev_headers" | "supabase";
   loading: boolean;
   isAuthenticated: boolean;
+  hasSession: boolean;
+  needsWorkspace: boolean;
+  onboardingComplete: boolean;
+  onboardingState: string | null;
+  workspaceName: string | null;
   email: string | null;
   tenantId: string;
   role: DevRole;
   canWrite: boolean;
   authHeaders: AuthHeaders;
   me: MeResponse | null;
+  session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<{ needsEmailConfirm: boolean }>;
+  createWorkspace: (workspaceName: string) => Promise<void>;
+  acceptInvite: (token: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshMe: () => Promise<MeResponse | null>;
   setDevAuth: (tenantId: string, role: DevRole) => void;
   authError: string | null;
-  needsProvisioning: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function isNotProvisionedError(msg: string | null): boolean {
+  return !!msg?.toLowerCase().includes("provisioned") || !!msg?.toLowerCase().includes("workspace");
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabaseMode = isSupabaseAuth();
@@ -51,9 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(supabaseMode);
   const [authError, setAuthError] = useState<string | null>(null);
-  const meRefreshRef = useRef<Promise<MeResponse> | null>(null);
+  const meRefreshRef = useRef<Promise<MeResponse | null> | null>(null);
 
-  const refreshMe = useCallback(async (token: string) => {
+  const refreshMeWithToken = useCallback(async (token: string) => {
     if (meRefreshRef.current) {
       return meRefreshRef.current;
     }
@@ -68,6 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return profile;
         } catch (e) {
           lastError = e;
+          if (e instanceof ApiError && e.status === 403) {
+            setMe(null);
+            setAuthError(e.message);
+            return null;
+          }
+          const msg = e instanceof Error ? e.message : "Failed to load profile";
+          if (isNotProvisionedError(msg)) {
+            setMe(null);
+            setAuthError(msg);
+            return null;
+          }
           if (attempt < 3) {
             await sleep(250 * (attempt + 1));
           }
@@ -89,6 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshMe = useCallback(async () => {
+    const token = session?.access_token;
+    if (!token) return null;
+    return refreshMeWithToken(token);
+  }, [session?.access_token, refreshMeWithToken]);
+
   useEffect(() => {
     if (!supabaseMode) {
       setLoading(false);
@@ -104,11 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       if (data.session?.access_token) {
         try {
-          await refreshMe(data.session.access_token);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : "Failed to load profile";
-          setAuthError(msg);
-          setMe(null);
+          await refreshMeWithToken(data.session.access_token);
+        } catch {
+          /* authError set in refreshMeWithToken */
         }
       }
       setLoading(false);
@@ -122,18 +157,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMe(null);
         return;
       }
-      // init() already loads profile for the persisted session
       if (event === "INITIAL_SESSION") {
         return;
       }
-      void refreshMe(nextSession.access_token).catch(() => undefined);
+      void refreshMeWithToken(nextSession.access_token).catch(() => undefined);
     });
 
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [supabaseMode, refreshMe]);
+  }, [supabaseMode, refreshMeWithToken]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const supabase = getSupabase();
@@ -142,8 +176,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message);
     if (!data.session?.access_token) throw new Error("No session returned");
     setSession(data.session);
-    await refreshMe(data.session.access_token);
-  }, [refreshMe]);
+    await refreshMeWithToken(data.session.access_token);
+  }, [refreshMeWithToken]);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    const supabase = getSupabase();
+    setAuthError(null);
+    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    if (error) throw new Error(error.message);
+    if (data.session) {
+      setSession(data.session);
+    }
+    return { needsEmailConfirm: !data.session };
+  }, []);
+
+  const createWorkspaceForUser = useCallback(async (workspaceName: string) => {
+    const token = session?.access_token;
+    if (!token) throw new Error("Sign in required");
+    await createWorkspace(token, workspaceName.trim());
+    await refreshMeWithToken(token);
+  }, [session?.access_token, refreshMeWithToken]);
+
+  const acceptInvite = useCallback(async (token: string) => {
+    const bearer = session?.access_token;
+    if (!bearer) throw new Error("Sign in required");
+    await acceptInvitation(bearer, token);
+    await refreshMeWithToken(bearer);
+  }, [session?.access_token, refreshMeWithToken]);
 
   const signOut = useCallback(async () => {
     if (supabaseMode) {
@@ -164,13 +223,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (supabaseMode) {
       const token = session?.access_token;
       const role = (me?.role as DevRole) ?? "viewer";
-      const needsProvisioning =
-        !!token && !me && !!authError?.toLowerCase().includes("provisioned");
+      const onboardingState = me?.workspace?.onboarding_state ?? null;
+      const needsWorkspace = !!token && !me && isNotProvisionedError(authError);
       return {
         mode: "supabase",
         loading,
+        hasSession: !!token,
+        needsWorkspace,
         isAuthenticated: !!token && !!me,
-        needsProvisioning,
+        onboardingComplete: isOnboardingComplete(onboardingState),
+        onboardingState,
+        workspaceName: me?.workspace?.name ?? null,
         email: me?.email ?? session?.user.email ?? null,
         tenantId: me?.tenant_id ?? "",
         role,
@@ -181,8 +244,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           bearerToken: token,
         },
         me,
+        session,
         signIn,
+        signUp,
+        createWorkspace: createWorkspaceForUser,
+        acceptInvite,
         signOut,
+        refreshMe,
         setDevAuth,
         authError,
       };
@@ -191,8 +259,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       mode: "dev_headers",
       loading: false,
+      hasSession: !!devTenantId,
+      needsWorkspace: false,
       isAuthenticated: !!devTenantId,
-      needsProvisioning: false,
+      onboardingComplete: true,
+      onboardingState: "ONBOARDING_COMPLETE",
+      workspaceName: null,
       email: null,
       tenantId: devTenantId || defaultTenantId(),
       role: devRole,
@@ -202,10 +274,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: devRole,
       },
       me: null,
+      session: null,
       signIn: async () => {
         throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
       },
+      signUp: async () => {
+        throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
+      },
+      createWorkspace: async () => {
+        throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
+      },
+      acceptInvite: async () => {
+        throw new Error("Use dev headers or switch VITE_AUTH_MODE=supabase");
+      },
       signOut: async () => undefined,
+      refreshMe: async () => null,
       setDevAuth,
       authError: null,
     };
@@ -217,7 +300,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     devTenantId,
     devRole,
     signIn,
+    signUp,
+    createWorkspaceForUser,
+    acceptInvite,
     signOut,
+    refreshMe,
     setDevAuth,
     authError,
   ]);

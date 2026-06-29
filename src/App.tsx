@@ -1,7 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { isSupabaseAuth } from "./lib/config";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { WelcomeLayout } from "./components/welcome/WelcomeLayout";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthProvider } from "./contexts/AuthContext";
+import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { CreateWorkspacePage } from "./pages/CreateWorkspacePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DevAuthPage } from "./pages/DevAuthPage";
 import { FindingDetailPage } from "./pages/FindingDetailPage";
@@ -9,6 +13,13 @@ import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ScanDetailPage } from "./pages/ScanDetailPage";
 import { ScansPage } from "./pages/ScansPage";
+import { SignupPage } from "./pages/SignupPage";
+import { SignupVerifyPage } from "./pages/SignupVerifyPage";
+import { TeamPage } from "./pages/TeamPage";
+import { ConnectAwsPage } from "./pages/welcome/ConnectAwsPage";
+import { ScanProgressPage } from "./pages/welcome/ScanProgressPage";
+import { ScanResultsPage } from "./pages/welcome/ScanResultsPage";
+import { WelcomePage } from "./pages/welcome/WelcomePage";
 
 export default function App() {
   return (
@@ -16,9 +27,28 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/me" element={<Navigate to="/login" replace />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/signup/verify" element={<SignupVerifyPage />} />
+          <Route path="/create-workspace" element={<CreateWorkspacePage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
+
           <Route
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireOnboarding={false}>
+                <WelcomeLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/welcome" element={<WelcomePage />} />
+            <Route path="/welcome/connect-aws" element={<ConnectAwsPage />} />
+            <Route path="/welcome/scan" element={<ScanProgressPage />} />
+            <Route path="/welcome/results" element={<ScanResultsPage />} />
+          </Route>
+
+          <Route
+            element={
+              <ProtectedRoute requireOnboarding>
                 <AppShell />
               </ProtectedRoute>
             }
@@ -28,8 +58,10 @@ export default function App() {
             <Route path="scans" element={<ScansPage />} />
             <Route path="scans/:scanId" element={<ScanDetailPage />} />
             <Route path="scans/:scanId/findings/:findingId" element={<FindingDetailPage />} />
-            <Route path="dev" element={<DevAuthPage />} />
+            <Route path="team" element={<TeamPage />} />
+            {!isSupabaseAuth() && <Route path="dev" element={<DevAuthPage />} />}
           </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

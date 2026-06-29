@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isSupabaseAuth } from "../lib/config";
 
 export function LoginPage() {
-  const { signIn, isAuthenticated, loading } = useAuth();
+  const { signIn, isAuthenticated, loading, hasSession, needsWorkspace } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/";
@@ -20,6 +20,10 @@ export function LoginPage() {
 
   if (!loading && isAuthenticated) {
     return <Navigate to={from} replace />;
+  }
+
+  if (!loading && hasSession && needsWorkspace) {
+    return <Navigate to="/create-workspace" replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -40,7 +44,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
-        <p className="mt-1 text-sm text-slate-500">Platform cloud security — Supabase Auth</p>
+        <p className="mt-1 text-sm text-slate-500">Sign in to your Drantiq workspace</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block text-sm">
@@ -77,9 +81,11 @@ export function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
-          Local dev without login? Set{" "}
-          <code className="rounded bg-slate-100 px-1">VITE_AUTH_MODE=dev_headers</code>
+        <p className="mt-6 text-center text-sm text-slate-500">
+          New to Drantiq?{" "}
+          <Link to="/signup" className="font-medium text-indigo-600 hover:underline">
+            Create an account
+          </Link>
         </p>
       </div>
     </div>

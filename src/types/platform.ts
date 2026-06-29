@@ -181,5 +181,50 @@ export type MeResponse = {
   role: string;
   subject: string;
   email: string | null;
+  user_id?: string | null;
+  issuer?: string | null;
   auth_mode: string;
+  workspace?: WorkspaceSummary | null;
+};
+
+export type WorkspaceSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  onboarding_state: string;
+  plan: string;
+  trial_end: string | null;
+};
+
+export type OnboardingState =
+  | "WORKSPACE_CREATED"
+  | "AWS_CONNECTED"
+  | "FIRST_SCAN_STARTED"
+  | "FIRST_SCAN_COMPLETE"
+  | "ONBOARDING_COMPLETE";
+
+export type WorkspaceCreateResponse = {
+  workspace: WorkspaceSummary;
+  membership: { id: string; role: string; status: string };
+  next_path: string;
+};
+
+export type Invitation = {
+  id: string;
+  tenant_id: string;
+  email: string;
+  role: string;
+  status: string;
+  expires_at: string;
+  created_at: string;
+  invite_url?: string | null;
+};
+
+export type InvitationPreview = {
+  email: string;
+  role: string;
+  status: string;
+  workspace_name: string;
+  expires_at: string;
 };

@@ -34,11 +34,10 @@ export function AppShell() {
               <NavLink to="/integrations" className={navCls}>
                 Integrations
               </NavLink>
-              {mode === "supabase" ? (
-                <NavLink to="/dev" className={navCls}>
-                  Session
-                </NavLink>
-              ) : (
+              <NavLink to="/team" className={navCls}>
+                Team
+              </NavLink>
+              {mode === "dev_headers" && (
                 <NavLink to="/dev" className={navCls}>
                   Dev auth
                 </NavLink>
