@@ -1,23 +1,37 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { welcomeTitle } from "../../lib/awsOnboarding";
 
 export function WelcomePage() {
-  const { workspaceName } = useAuth();
+  const { email, workspaceName } = useAuth();
   const navigate = useNavigate();
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-bold text-slate-900">
-        Welcome to Drantiq{workspaceName ? `, ${workspaceName}` : ""}
-      </h1>
-      <p className="mt-3 text-slate-600">
-        Let&apos;s connect your AWS account and run your first security scan. Most teams finish in
-        under 5 minutes.
+      <h1 className="text-2xl font-bold text-slate-900">{welcomeTitle(email, workspaceName)}</h1>
+      {workspaceName && (
+        <p className="mt-1 text-sm text-slate-500">{workspaceName} workspace</p>
+      )}
+      <p className="mt-4 text-lg font-medium text-slate-800">
+        Secure your AWS account in under 5 minutes.
       </p>
-      <ul className="mt-6 space-y-2 text-sm text-slate-600">
-        <li>✓ Read-only STS access — we never modify your resources</li>
-        <li>✓ 35+ automated CIS AWS controls</li>
-        <li>✓ Prioritized fixes ranked by business impact</li>
+      <p className="mt-2 text-slate-600">
+        We&apos;ll connect using read-only access, analyze your environment, and show you exactly
+        what to fix first.
+      </p>
+      <ul className="mt-6 space-y-3 text-sm text-slate-700">
+        <li className="flex gap-2">
+          <span className="text-emerald-600">✓</span>
+          <span>Read-only AWS access — we never modify your resources</span>
+        </li>
+        <li className="flex gap-2">
+          <span className="text-emerald-600">✓</span>
+          <span>Identify security risks automatically</span>
+        </li>
+        <li className="flex gap-2">
+          <span className="text-emerald-600">✓</span>
+          <span>Prioritized fixes with step-by-step remediation</span>
+        </li>
       </ul>
       <button
         type="button"

@@ -62,7 +62,8 @@ export function ScanResultsPage() {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-      <p className="text-4xl">🎉</p>
+      <p className="text-sm font-medium text-indigo-600">Step 4 of 4 · Review results</p>
+      <p className="mt-4 text-4xl">🎉</p>
       <h1 className="mt-4 text-2xl font-bold text-slate-900">Congratulations!</h1>
       <p className="mt-2 text-slate-600">
         {count > 0

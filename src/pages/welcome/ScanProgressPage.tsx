@@ -7,22 +7,15 @@ import {
   listIntegrations,
   updateOnboardingState,
 } from "../../lib/api";
+import { SCAN_PROGRESS_STEPS } from "../../lib/awsOnboarding";
 import { isTerminalStatus } from "../../lib/format";
-
-const PROGRESS_MESSAGES = [
-  "Discovering resources across your AWS account…",
-  "Building your asset inventory…",
-  "Evaluating 35 security policies…",
-  "Mapping findings to CIS controls…",
-];
 
 export function ScanProgressPage() {
   const { authHeaders, refreshMe } = useAuth();
   const navigate = useNavigate();
   const [scanId, setScanId] = useState<string | null>(null);
-  const [messageIndex, setMessageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [starting, setStarting] = useState(true);
+  const [activeStep, setActiveStep] = useState(0);
 
   const { scan } = useScanPolling(authHeaders, scanId ?? undefined, !!scanId);
 
@@ -37,15 +30,9 @@ export function ScanProgressPage() {
         }
         await updateOnboardingState(authHeaders, "FIRST_SCAN_STARTED");
         const row = await createScan(authHeaders, integrations[0].id);
-        if (!cancelled) {
-          setScanId(row.id);
-          setStarting(false);
-        }
+        if (!cancelled) setScanId(row.id);
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to start scan");
-          setStarting(false);
-        }
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to start scan");
       }
     }
     start();
@@ -55,44 +42,75 @@ export function ScanProgressPage() {
   }, [authHeaders, navigate]);
 
   useEffect(() => {
+    if (!scanId) return;
     const timer = window.setInterval(() => {
-      setMessageIndex((i) => (i + 1) % PROGRESS_MESSAGES.length);
-    }, 4000);
+      setActiveStep((s) => {
+        if (scan && isTerminalStatus(scan.status)) return SCAN_PROGRESS_STEPS.length - 1;
+        return Math.min(s + 1, SCAN_PROGRESS_STEPS.length - 2);
+      });
+    }, 3500);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [scanId, scan]);
 
   useEffect(() => {
     if (!scan || !isTerminalStatus(scan.status)) return;
     async function complete() {
+      setActiveStep(SCAN_PROGRESS_STEPS.length - 1);
       await updateOnboardingState(authHeaders, "FIRST_SCAN_COMPLETE");
       await refreshMe();
+      await new Promise((r) => setTimeout(r, 800));
       navigate("/welcome/results", { replace: true, state: { scanId: scan!.id } });
     }
     void complete();
   }, [scan, authHeaders, navigate, refreshMe]);
 
-  const progress =
-    scan?.status === "completed" || scan?.status === "completed_with_errors"
-      ? 100
-      : scan?.status === "running"
-        ? 65
-        : starting
-          ? 15
-          : 35;
+  const progress = Math.round(((activeStep + 1) / SCAN_PROGRESS_STEPS.length) * 100);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm text-center">
-      <h1 className="text-2xl font-bold text-slate-900">Running your first scan…</h1>
-      <p className="mt-3 text-slate-600">{PROGRESS_MESSAGES[messageIndex]}</p>
-      <div className="mx-auto mt-8 max-w-md">
-        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+    <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <p className="text-sm font-medium text-indigo-600">Step 3 of 4 · Run scan</p>
+      <h1 className="mt-1 text-2xl font-bold text-slate-900">Analyzing your AWS environment…</h1>
+      <p className="mt-2 text-slate-600">This usually takes a few minutes. You can keep this tab open.</p>
+
+      <ul className="mt-8 space-y-3">
+        {SCAN_PROGRESS_STEPS.map((step, i) => {
+          const done = i < activeStep;
+          const current = i === activeStep;
+          return (
+            <li key={step.key} className="flex items-center gap-3 text-sm">
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                  done
+                    ? "bg-emerald-100 text-emerald-700"
+                    : current
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-100 text-slate-400"
+                }`}
+              >
+                {done ? "✓" : current ? "…" : ""}
+              </span>
+              <span
+                className={
+                  done ? "text-slate-800" : current ? "font-medium text-slate-900" : "text-slate-400"
+                }
+              >
+                {step.label}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-8">
+        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
           <div
             className="h-full rounded-full bg-indigo-600 transition-all duration-700"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="mt-2 text-sm text-slate-500">{progress}%</p>
+        <p className="mt-2 text-center text-xs text-slate-500">{progress}%</p>
       </div>
+
       {error && (
         <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>
       )}
