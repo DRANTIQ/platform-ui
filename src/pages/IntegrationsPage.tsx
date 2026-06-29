@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { createAwsIntegration, listIntegrations } from "../lib/api";
-import { formatDate } from "../lib/format";
+import { ConnectAwsForm } from "../components/integrations/ConnectAwsForm";
 import { StatusBadge } from "../components/ui/StatusBadge";
+import { useAuth } from "../contexts/AuthContext";
+import { listIntegrations } from "../lib/api";
+import { formatDate } from "../lib/format";
 import type { Integration } from "../types/platform";
-
-const DEFAULT_REGIONS = "us-east-1,us-west-2";
 
 export function IntegrationsPage() {
   const { authHeaders, canWrite } = useAuth();
@@ -14,12 +13,7 @@ export function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const [accountId, setAccountId] = useState("");
-  const [roleArn, setRoleArn] = useState("");
-  const [externalId, setExternalId] = useState("");
-  const [regions, setRegions] = useState(DEFAULT_REGIONS);
+  const [formKey, setFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     const rows = await listIntegrations(authHeaders);
@@ -32,32 +26,15 @@ export function IntegrationsPage() {
       .finally(() => setLoading(false));
   }, [refresh]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+  function openForm() {
+    setFormKey((k) => k + 1);
+    setShowForm(true);
     setError(null);
-    const regionList = regions
-      .split(",")
-      .map((r) => r.trim())
-      .filter(Boolean);
-    try {
-      await createAwsIntegration(authHeaders, {
-        account_id: accountId.trim(),
-        role_arn: roleArn.trim(),
-        external_id: externalId.trim(),
-        regions: regionList,
-      });
-      setShowForm(false);
-      setAccountId("");
-      setRoleArn("");
-      setExternalId("");
-      setRegions(DEFAULT_REGIONS);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to register integration");
-    } finally {
-      setSubmitting(false);
-    }
+  }
+
+  async function handleConnected() {
+    setShowForm(false);
+    await refresh();
   }
 
   if (loading) return <p className="text-slate-500">Loading integrations…</p>;
@@ -72,88 +49,29 @@ export function IntegrationsPage() {
         {canWrite && (
           <button
             type="button"
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => (showForm ? setShowForm(false) : openForm())}
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
           >
-            {showForm ? "Cancel" : "Connect AWS"}
+            {showForm ? "Cancel" : "Add AWS account"}
           </button>
         )}
       </div>
 
-      {error && (
+      {error && !showForm && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
       )}
 
       {showForm && canWrite && (
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <h2 className="text-lg font-medium text-slate-900">Connect AWS account</h2>
-          <p className="text-sm text-slate-500">
-            Create a cross-account IAM role in your AWS account that trusts the platform. Use the
-            same external ID here and in the role trust policy.
-          </p>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">AWS account ID</span>
-            <input
-              required
-              pattern="[0-9]{12}"
-              title="12-digit AWS account ID"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              placeholder="123456789012"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
-            />
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Role ARN</span>
-            <input
-              required
-              minLength={20}
-              value={roleArn}
-              onChange={(e) => setRoleArn(e.target.value)}
-              placeholder="arn:aws:iam::123456789012:role/PlatformReadOnly"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
-            />
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">External ID</span>
-            <input
-              required
-              minLength={8}
-              value={externalId}
-              onChange={(e) => setExternalId(e.target.value)}
-              placeholder="unique-external-id"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
-            />
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Regions</span>
-            <input
-              required
-              value={regions}
-              onChange={(e) => setRegions(e.target.value)}
-              placeholder="us-east-1,us-west-2"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <span className="mt-1 block text-xs text-slate-400">Comma-separated region codes</span>
-          </label>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {submitting ? "Connecting…" : "Register integration"}
-          </button>
-        </form>
+        <ConnectAwsForm
+          key={formKey}
+          authHeaders={authHeaders}
+          onSuccess={handleConnected}
+          externalIdMode="fresh"
+          variant="panel"
+          submitLabel="Add AWS account"
+        />
       )}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -171,14 +89,14 @@ export function IntegrationsPage() {
             {integrations.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                  No integrations yet.{" "}
+                  No AWS accounts connected yet.{" "}
                   {canWrite && (
                     <button
                       type="button"
-                      onClick={() => setShowForm(true)}
+                      onClick={openForm}
                       className="text-indigo-600 hover:underline"
                     >
-                      Connect AWS
+                      Add AWS account
                     </button>
                   )}
                 </td>
@@ -193,7 +111,11 @@ export function IntegrationsPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 capitalize text-slate-600">{item.provider}</td>
-                <td className="px-4 py-3 text-slate-600">{item.regions.join(", ")}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {item.regions.length > 5
+                    ? `${item.regions.length} regions`
+                    : item.regions.join(", ")}
+                </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={item.status} />
                 </td>
