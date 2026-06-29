@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_TENANT_ID: string;
   readonly VITE_DEV_ROLE: string;
   readonly VITE_FRAMEWORK_ID: string;
+  readonly VITE_APP_URL?: string;
 }
 
 interface ImportMeta {

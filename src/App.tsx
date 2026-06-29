@@ -1,10 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isSupabaseAuth } from "./lib/config";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AuthHashRedirect } from "./components/auth/AuthHashRedirect";
 import { WelcomeLayout } from "./components/welcome/WelcomeLayout";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { CreateWorkspacePage } from "./pages/CreateWorkspacePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DevAuthPage } from "./pages/DevAuthPage";
@@ -25,9 +27,11 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <AuthHashRedirect />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/me" element={<Navigate to="/login" replace />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/signup/verify" element={<SignupVerifyPage />} />
           <Route path="/create-workspace" element={<CreateWorkspacePage />} />

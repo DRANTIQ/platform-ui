@@ -24,10 +24,11 @@ import {
   saveDevAuth,
   type DevRole,
 } from "../lib/auth";
+import { hasAuthHashInUrl } from "../lib/authRedirect";
 import { isOnboardingComplete } from "../lib/onboarding";
 import { isSupabaseAuth } from "../lib/config";
 import { sleep } from "../lib/retry";
-import { getSupabase } from "../lib/supabase";
+import { getSupabase, supabaseEmailRedirectTo } from "../lib/supabase";
 import type { MeResponse } from "../types/platform";
 
 type AuthContextValue = {
@@ -135,7 +136,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
     let cancelled = false;
 
+    async function waitForHashSession() {
+      if (!hasAuthHashInUrl()) return;
+      await new Promise<void>((resolve) => {
+        const timeout = window.setTimeout(resolve, 5000);
+        const { data: listener } = supabase.auth.onAuthStateChange((event, sess) => {
+          if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && sess?.access_token) {
+            window.clearTimeout(timeout);
+            listener.subscription.unsubscribe();
+            resolve();
+          }
+        });
+      });
+    }
+
     async function init() {
+      await waitForHashSession();
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
       setSession(data.session);
@@ -182,7 +198,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     const supabase = getSupabase();
     setAuthError(null);
-    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: supabaseEmailRedirectTo(),
+      },
+    });
     if (error) throw new Error(error.message);
     if (data.session) {
       setSession(data.session);
