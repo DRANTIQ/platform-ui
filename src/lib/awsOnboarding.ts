@@ -1,12 +1,4 @@
-/** AWS onboarding helpers — customer-friendly connect flow */
-
-export const DRANTIQ_HUB_ACCOUNT_ID =
-  (import.meta.env.VITE_DRANTIQ_HUB_ACCOUNT_ID as string | undefined)?.trim() || "744698194074";
-
-/** Public onboarding doc (GitHub or docs site). */
-export const AWS_SETUP_DOC_URL =
-  (import.meta.env.VITE_AWS_SETUP_DOC_URL as string | undefined)?.trim() ||
-  "https://github.com/drantiq/compliance-engine/blob/main/docs/AWS_ACCOUNT_ONBOARDING.md";
+/** AWS onboarding helpers */
 
 export const AWS_COMMERCIAL_REGIONS = [
   "us-east-1",
@@ -38,6 +30,10 @@ export const AWS_COMMERCIAL_REGIONS = [
   "af-south-1",
   "il-central-1",
 ] as const;
+
+export const AWS_SETUP_DOC_URL =
+  (import.meta.env.VITE_AWS_SETUP_DOC_URL as string | undefined)?.trim() ||
+  "https://drantiq.ai/docs/aws-onboarding";
 
 export function generateExternalId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));

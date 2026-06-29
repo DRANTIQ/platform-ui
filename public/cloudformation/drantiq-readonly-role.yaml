@@ -1,45 +1,88 @@
 AWSTemplateFormatVersion: "2010-09-09"
+
 Description: Drantiq read-only cross-account IAM role for security assessments
 
+
+
 Parameters:
+
   DrantiqHubAccountId:
+
     Type: String
-    Default: "744698194074"
-    Description: Drantiq AWS hub account that will assume this role
+
+    Description: Drantiq hub account ID (from your Drantiq onboarding contact)
+
   ExternalId:
+
     Type: String
+
     MinLength: 8
+
     NoEcho: true
-    Description: External ID provided by Drantiq (pre-filled — do not change)
+
+    Description: External ID you choose — must match the value entered in Drantiq
+
   RoleName:
+
     Type: String
+
     Default: DrantiqReadOnly
+
     Description: IAM role name in your account
 
+
+
 Resources:
+
   DrantiqReadOnlyRole:
+
     Type: AWS::IAM::Role
+
     Properties:
+
       RoleName: !Ref RoleName
+
       Description: Read-only access for Drantiq security assessments
+
       MaxSessionDuration: 3600
+
       AssumeRolePolicyDocument:
+
         Version: "2012-10-17"
+
         Statement:
+
           - Effect: Allow
+
             Principal:
+
               AWS: !Sub "arn:aws:iam::${DrantiqHubAccountId}:root"
+
             Action: sts:AssumeRole
+
             Condition:
+
               StringEquals:
+
                 sts:ExternalId: !Ref ExternalId
+
       ManagedPolicyArns:
+
         - arn:aws:iam::aws:policy/SecurityAudit
 
+
+
 Outputs:
+
   RoleArn:
+
     Description: Copy this value into Drantiq
+
     Value: !GetAtt DrantiqReadOnlyRole.Arn
+
   AccountId:
-    Description: Your AWS account ID
+
+    Description: Your AWS account ID (also in AWS Console account menu)
+
     Value: !Ref AWS::AccountId
+

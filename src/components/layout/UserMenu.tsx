@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { AWS_SETUP_DOC_URL } from "../../lib/awsOnboarding";
 import { roleLabel, userInitials, type DevRole } from "../../lib/auth";
 import { isSupabaseAuth } from "../../lib/config";
 
@@ -94,10 +95,10 @@ export function UserMenu() {
               Account settings
             </Link>
             <a
-              href="https://drantiq.ai"
+              href={AWS_SETUP_DOC_URL}
               role="menuitem"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
               Help & documentation

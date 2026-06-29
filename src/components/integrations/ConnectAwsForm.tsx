@@ -30,14 +30,12 @@ export function ConnectAwsForm({
   const [roleArn, setRoleArn] = useState("");
   const [scanAllRegions, setScanAllRegions] = useState(true);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(["us-east-1", "us-west-2"]);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [accountIdOverride, setAccountIdOverride] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [validationStep, setValidationStep] = useState(0);
 
   const parsedAccountId = parseAccountIdFromRoleArn(roleArn);
-  const accountId = accountIdOverride.trim() || parsedAccountId || "";
+  const accountId = parsedAccountId || "";
 
   const shellClass =
     variant === "page"
@@ -194,11 +192,6 @@ export function ConnectAwsForm({
             placeholder="arn:aws:iam::123456789012:role/DrantiqReadOnly"
             className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 font-mono text-sm"
           />
-          {parsedAccountId && (
-            <p className="mt-1.5 text-xs text-slate-500">
-              Detected account ID: <span className="font-mono">{parsedAccountId}</span>
-            </p>
-          )}
         </label>
 
         <fieldset className="text-sm">
@@ -229,29 +222,6 @@ export function ConnectAwsForm({
             </div>
           )}
         </fieldset>
-
-        <button
-          type="button"
-          onClick={() => setAdvancedOpen((v) => !v)}
-          className="text-sm font-medium text-slate-500 hover:text-slate-700"
-        >
-          {advancedOpen ? "▼" : "▶"} Advanced settings
-        </button>
-
-        {advancedOpen && (
-          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm">
-            <label className="block">
-              <span className="font-medium text-slate-700">AWS account ID</span>
-              <input
-                value={accountIdOverride || parsedAccountId || ""}
-                onChange={(e) => setAccountIdOverride(e.target.value)}
-                placeholder="Auto-detected from Role ARN"
-                pattern="[0-9]{12}"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
-              />
-            </label>
-          </div>
-        )}
 
         <button
           type="submit"
