@@ -1,9 +1,12 @@
 /** AWS onboarding helpers — customer-friendly connect flow */
 
-const EXTERNAL_ID_KEY = "drantiq_aws_external_id";
-
 export const DRANTIQ_HUB_ACCOUNT_ID =
   (import.meta.env.VITE_DRANTIQ_HUB_ACCOUNT_ID as string | undefined)?.trim() || "744698194074";
+
+/** Public onboarding doc (GitHub or docs site). */
+export const AWS_SETUP_DOC_URL =
+  (import.meta.env.VITE_AWS_SETUP_DOC_URL as string | undefined)?.trim() ||
+  "https://github.com/drantiq/compliance-engine/blob/main/docs/AWS_ACCOUNT_ONBOARDING.md";
 
 export const AWS_COMMERCIAL_REGIONS = [
   "us-east-1",
@@ -42,14 +45,6 @@ export function generateExternalId(): string {
   return `drq_${hex}`;
 }
 
-export function getOrCreateExternalId(): string {
-  const stored = sessionStorage.getItem(EXTERNAL_ID_KEY);
-  if (stored && stored.length >= 8) return stored;
-  const id = generateExternalId();
-  sessionStorage.setItem(EXTERNAL_ID_KEY, id);
-  return id;
-}
-
 export function parseAccountIdFromRoleArn(arn: string): string | null {
   const match = arn.trim().match(/^arn:aws:iam::(\d{12}):role\/.+$/);
   return match?.[1] ?? null;
@@ -60,19 +55,6 @@ export function cloudFormationTemplateUrl(): string {
   if (configured) return configured;
   const origin = (import.meta.env.VITE_APP_URL as string | undefined)?.trim() || window.location.origin;
   return `${origin.replace(/\/$/, "")}/cloudformation/drantiq-readonly-role.yaml`;
-}
-
-/** Opens AWS Console CloudFormation quick-create with External ID pre-filled. */
-export function buildCloudFormationLaunchUrl(externalId: string, region = "us-east-1"): string {
-  const templateUrl = cloudFormationTemplateUrl();
-  const params = new URLSearchParams({
-    stackName: "DrantiqReadOnly",
-    templateURL: templateUrl,
-    param_DrantiqHubAccountId: DRANTIQ_HUB_ACCOUNT_ID,
-    param_ExternalId: externalId,
-    param_RoleName: "DrantiqReadOnly",
-  });
-  return `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/quickcreate?${params.toString()}`;
 }
 
 export function greetingFirstName(email: string | null): string | null {

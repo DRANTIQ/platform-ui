@@ -1,22 +1,19 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { AwsSetupGuide } from "./AwsSetupGuide";
 import { AwsTrustPanel } from "../welcome/AwsTrustPanel";
 import { FieldTooltip } from "../welcome/FieldTooltip";
 import type { AuthHeaders } from "../../lib/api";
 import { createAwsIntegration } from "../../lib/api";
 import {
   AWS_COMMERCIAL_REGIONS,
-  buildCloudFormationLaunchUrl,
   CONNECT_VALIDATION_STEPS,
   generateExternalId,
-  getOrCreateExternalId,
   parseAccountIdFromRoleArn,
 } from "../../lib/awsOnboarding";
 
 type ConnectAwsFormProps = {
   authHeaders: AuthHeaders;
   onSuccess: () => void | Promise<void>;
-  /** Use session-persisted ID during onboarding; fresh ID when adding another account */
-  externalIdMode?: "session" | "fresh";
   variant?: "page" | "panel";
   showStepLabel?: boolean;
   submitLabel?: string;
@@ -25,16 +22,11 @@ type ConnectAwsFormProps = {
 export function ConnectAwsForm({
   authHeaders,
   onSuccess,
-  externalIdMode = "session",
   variant = "page",
   showStepLabel = false,
   submitLabel = "Connect AWS account",
 }: ConnectAwsFormProps) {
-  const externalId = useMemo(
-    () => (externalIdMode === "fresh" ? generateExternalId() : getOrCreateExternalId()),
-    [externalIdMode],
-  );
-
+  const [externalId, setExternalId] = useState("");
   const [roleArn, setRoleArn] = useState("");
   const [scanAllRegions, setScanAllRegions] = useState(true);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(["us-east-1", "us-west-2"]);
@@ -43,7 +35,6 @@ export function ConnectAwsForm({
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [validationStep, setValidationStep] = useState(0);
-  const [cfnLaunched, setCfnLaunched] = useState(false);
 
   const parsedAccountId = parseAccountIdFromRoleArn(roleArn);
   const accountId = accountIdOverride.trim() || parsedAccountId || "";
@@ -59,13 +50,12 @@ export function ConnectAwsForm({
     );
   }
 
-  function handleLaunchCloudFormation() {
-    window.open(buildCloudFormationLaunchUrl(externalId), "_blank", "noopener,noreferrer");
-    setCfnLaunched(true);
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (externalId.trim().length < 8) {
+      setError("External ID must be at least 8 characters — use the same value you set in AWS.");
+      return;
+    }
     if (!accountId || accountId.length !== 12) {
       setError(
         "Paste your Role ARN from CloudFormation — we'll detect your account ID automatically.",
@@ -90,7 +80,7 @@ export function ConnectAwsForm({
       await createAwsIntegration(authHeaders, {
         account_id: accountId,
         role_arn: roleArn.trim(),
-        external_id: externalId,
+        external_id: externalId.trim(),
         regions: regionList,
       });
       setValidationStep(CONNECT_VALIDATION_STEPS.length - 1);
@@ -143,35 +133,17 @@ export function ConnectAwsForm({
         Connect your AWS account securely
       </h2>
       <p className="mt-2 text-sm text-slate-600">
-        Estimated time: <strong>2 minutes</strong>. We use a read-only IAM role — no agents, no
-        changes to your infrastructure.
+        Estimated time: <strong>10–15 minutes</strong>. Deploy a read-only role in your account,
+        then register it here.
       </p>
 
-      <AwsTrustPanel />
+      <div className="mt-5">
+        <AwsTrustPanel />
+      </div>
 
-      <ol className="mt-6 list-decimal space-y-2 pl-5 text-sm text-slate-700">
-        <li>Launch our CloudFormation template in your AWS account</li>
-        <li>AWS creates a secure read-only role (takes about 1 minute)</li>
-        <li>Copy the <strong>Role ARN</strong> from the stack outputs</li>
-        <li>Paste it below and click Connect</li>
-      </ol>
-
-      <button
-        type="button"
-        onClick={handleLaunchCloudFormation}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF9900] px-6 py-3.5 text-base font-semibold text-slate-900 shadow-sm transition hover:bg-[#ec8800] sm:w-auto"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.08 5.1 7.63 12 4.18zM4 8.82l7 3.5v7.36l-7-3.5V8.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z" />
-        </svg>
-        Launch CloudFormation in AWS
-      </button>
-      {cfnLaunched && (
-        <p className="mt-2 text-sm text-emerald-700">
-          CloudFormation opened in a new tab. When the stack completes, copy the Role ARN from
-          Outputs.
-        </p>
-      )}
+      <div className="mt-6">
+        <AwsSetupGuide />
+      </div>
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -180,10 +152,39 @@ export function ConnectAwsForm({
       )}
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5 border-t border-slate-100 pt-8">
+        <h3 className="text-sm font-semibold text-slate-900">Register your role in Drantiq</h3>
+
+        <label className="block text-sm">
+          <FieldTooltip
+            label="External ID"
+            hint="The secret you chose when deploying the template. Must match exactly what is in your IAM role trust policy."
+          />
+          <div className="mt-2 flex gap-2">
+            <input
+              required
+              minLength={8}
+              value={externalId}
+              onChange={(e) => setExternalId(e.target.value)}
+              placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2.5 font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setExternalId(generateExternalId())}
+              className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Suggest
+            </button>
+          </div>
+          <span className="mt-1 block text-xs text-slate-500">
+            You define this — use the same value in AWS and here.
+          </span>
+        </label>
+
         <label className="relative block text-sm">
           <FieldTooltip
             label="Role ARN"
-            hint="In AWS CloudFormation → your stack → Outputs tab → copy the RoleArn value."
+            hint="CloudFormation → your stack → Outputs → RoleArn."
           />
           <input
             required
@@ -238,7 +239,7 @@ export function ConnectAwsForm({
         </button>
 
         {advancedOpen && (
-          <div className="space-y-4 rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm">
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm">
             <label className="block">
               <span className="font-medium text-slate-700">AWS account ID</span>
               <input
@@ -249,31 +250,12 @@ export function ConnectAwsForm({
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
               />
             </label>
-            <div>
-              <span className="font-medium text-slate-700">External ID</span>
-              <p className="mt-1 text-xs text-slate-500">
-                Pre-configured in your CloudFormation stack. You don&apos;t need to enter this
-                manually.
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs">
-                  {externalId}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(externalId)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium hover:bg-slate-50"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
         <button
           type="submit"
-          disabled={!roleArn.trim()}
+          disabled={!roleArn.trim() || externalId.trim().length < 8}
           className="w-full rounded-lg bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto sm:px-8"
         >
           {submitLabel}

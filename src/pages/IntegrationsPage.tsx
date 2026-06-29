@@ -68,7 +68,6 @@ export function IntegrationsPage() {
           key={formKey}
           authHeaders={authHeaders}
           onSuccess={handleConnected}
-          externalIdMode="fresh"
           variant="panel"
           submitLabel="Add AWS account"
         />

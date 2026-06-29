@@ -16,7 +16,6 @@ export function ConnectAwsPage() {
     <ConnectAwsForm
       authHeaders={authHeaders}
       onSuccess={handleSuccess}
-      externalIdMode="session"
       variant="page"
       showStepLabel
     />
