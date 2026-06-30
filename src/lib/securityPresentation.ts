@@ -32,7 +32,7 @@ const TIMELINE_LABELS: Record<string, string> = {
   "inventory.updated": "Building resource inventory",
   "policy.evaluate": "Evaluating security policies",
   "policy.completed": "Security evaluation complete",
-  "compliance.updated": "Calculating compliance score",
+  "compliance.updated": "Calculating security score",
   "scan.completed": "Scan completed",
 };
 
@@ -61,7 +61,7 @@ export function businessImpact(finding: Finding | FindingDetail): string {
   if ("business_impact" in finding && finding.business_impact) return finding.business_impact;
   return (
     rem(finding)?.business_impact ??
-    "This misconfiguration may lead to unauthorized access or compliance failure."
+    "This misconfiguration may lead to unauthorized access or increased security risk."
   );
 }
 
@@ -81,16 +81,6 @@ export function frameworkTags(finding: Finding | FindingDetail): string[] {
     );
   }
   return rem(finding)?.framework_mappings ?? [];
-}
-
-export function cisControl(finding: Finding | FindingDetail): string | null {
-  if ("frameworks" in finding && finding.frameworks?.length) {
-    const cis = finding.frameworks.find((f) => f.framework.includes("CIS"));
-    if (cis) return cis.control ? `CIS ${cis.control}` : cis.framework;
-  }
-  const tags = frameworkTags(finding);
-  const cis = tags.find((t) => t.startsWith("CIS "));
-  return cis ?? null;
 }
 
 export function estimatedFixMinutes(finding: Finding | FindingDetail): number {

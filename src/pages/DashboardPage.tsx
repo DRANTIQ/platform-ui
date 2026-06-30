@@ -11,6 +11,7 @@ import {
 import { formatRelativeTime } from "../lib/format";
 import { loadScanExperience } from "../lib/scanExperience";
 import { accountRiskSummary } from "../lib/securityPresentation";
+import { copy } from "../lib/productCopy";
 import type { FixPriorityItem, Scan, ScanRiskSummary, TopRiskItem } from "../types/platform";
 
 export function DashboardPage() {
@@ -125,7 +126,7 @@ export function DashboardPage() {
                 to="/scans"
                 className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
               >
-                Run first scan
+                {copy.runFirstAssessment}
               </Link>
             </>
           )}
@@ -168,7 +169,7 @@ export function DashboardPage() {
           </div>
           <div className="flex flex-col items-center gap-2">
             <ScoreRing score={riskSummary?.score ?? null} />
-            <p className="text-xs font-medium text-slate-500">Overall security score</p>
+            <p className="text-xs font-medium text-slate-500">{copy.overallSecurityScore}</p>
           </div>
         </div>
       </section>
@@ -177,7 +178,7 @@ export function DashboardPage() {
         <StatCard label="Critical" value={String(severity.critical ?? 0)} alert={severity.critical > 0} />
         <StatCard label="High" value={String(severity.high ?? 0)} />
         <StatCard label="Resources" value={String(resourceCount)} />
-        <StatCard label="Compliance failures" value={String(failCount)} />
+        <StatCard label={copy.openIssues} value={String(failCount)} />
       </div>
 
       {topRisks.length > 0 && (

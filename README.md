@@ -77,9 +77,9 @@ If login succeeds but the dashboard fails, confirm `https://api.drantiq.ai/healt
 ### Pages
 
 - **Login** — Supabase email/password
-- **Dashboard** — CIS score, failures, latest scan
-- **Scans** — list + run scan
-- **Scan detail** — findings, assets, CIS, timeline
+- **Dashboard** — security score, open issues, latest assessment
+- **Assessments** — list + run security assessment
+- **Assessment detail** — findings, assets, framework coverage, timeline
 
 ### Migrate to Cognito later
 

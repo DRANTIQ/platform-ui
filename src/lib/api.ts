@@ -1,5 +1,6 @@
 import type {
   Asset,
+  ComplianceFramework,
   ControlResult,
   Finding,
   FindingDetail,
@@ -16,6 +17,7 @@ import type {
   WorkspaceCreateResponse,
   WorkspaceSummary,
 } from "../types/platform";
+import { config } from "./config";
 
 export class ApiError extends Error {
   constructor(
@@ -213,9 +215,18 @@ export function getScanTimeline(auth: AuthHeaders, scanId: string): Promise<Time
   return request(auth, `/v1/scans/${scanId}/timeline`);
 }
 
-export function getScanCompliance(auth: AuthHeaders, scanId: string): Promise<ScanCompliance> {
-  const frameworkId = import.meta.env.VITE_FRAMEWORK_ID || "cis_aws_v6";
-  return request(auth, `/v1/compliance/frameworks/${frameworkId}/scans/${scanId}`);
+export function listComplianceFrameworks(auth: AuthHeaders): Promise<ComplianceFramework[]> {
+  return request(auth, "/v1/compliance/frameworks");
+}
+
+export function getScanCompliance(
+  auth: AuthHeaders,
+  scanId: string,
+  frameworkId?: string,
+): Promise<ScanCompliance> {
+  const resolved =
+    frameworkId || import.meta.env.VITE_FRAMEWORK_ID || config.frameworkId;
+  return request(auth, `/v1/compliance/frameworks/${resolved}/scans/${scanId}`);
 }
 
 export function getScanRiskSummary(auth: AuthHeaders, scanId: string): Promise<ScanRiskSummary> {

@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { UserMenu } from "./UserMenu";
 import { useAuth } from "../../contexts/AuthContext";
 import { isSupabaseAuth } from "../../lib/config";
+import { copy } from "../../lib/productCopy";
 
 export function AppShell() {
   const { mode } = useAuth();
@@ -21,7 +22,7 @@ export function AppShell() {
                 Security
               </NavLink>
               <NavLink to="/scans" className={navCls}>
-                Scans
+                {copy.scansNav}
               </NavLink>
               <NavLink to="/integrations" className={navCls}>
                 Integrations
@@ -42,6 +43,11 @@ export function AppShell() {
       <main className="mx-auto max-w-6xl px-4 py-8">
         <Outlet />
       </main>
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <p className="text-center text-xs leading-relaxed text-slate-500">{copy.disclaimer}</p>
+        </div>
+      </footer>
     </div>
   );
 }

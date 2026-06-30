@@ -4,10 +4,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { useScanPolling } from "../hooks/useScanPolling";
 import { PriorityFixList, TopRiskListItem } from "../components/security/PriorityFixList";
 import { ScoreRing, SeverityBadge, SeverityPills } from "../components/security/SeverityBadge";
+import { DEFAULT_FRAMEWORK_ID } from "../lib/config";
 import {
   getScanCompliance,
   getScanTimeline,
   listAssets,
+  listComplianceFrameworks,
   listFindings,
 } from "../lib/api";
 import { loadScanExperience } from "../lib/scanExperience";
@@ -19,7 +21,6 @@ import {
 } from "../lib/format";
 import {
   assetHealthFromPriorities,
-  cisControl,
   customerTimeline,
   groupAssetsByType,
   resourceDisplayName,
@@ -28,9 +29,11 @@ import {
   riskSummary as findingRiskSummary,
   scanDurationLabel,
 } from "../lib/securityPresentation";
+import { copy, customerFrameworkTitle } from "../lib/productCopy";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type {
   Asset,
+  ComplianceFramework,
   ControlResult,
   Finding,
   FixPriorityItem,
@@ -51,6 +54,9 @@ export function ScanDetailPage() {
   const [findingsLoaded, setFindingsLoaded] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [compliance, setCompliance] = useState<ScanCompliance | null>(null);
+  const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);
+  const [selectedFrameworkId, setSelectedFrameworkId] = useState(DEFAULT_FRAMEWORK_ID);
+  const [complianceLoading, setComplianceLoading] = useState(false);
   const [scanRiskSummary, setScanRiskSummary] = useState<ScanRiskSummary | null>(null);
   const [fixPriorities, setFixPriorities] = useState<FixPriorityItem[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
@@ -76,18 +82,23 @@ export function ScanDetailPage() {
     let cancelled = false;
     async function loadDetails() {
       try {
-        const [a, comp, experience, tl] = await Promise.all([
+        const [a, experience, tl, fw] = await Promise.all([
           listAssets(authHeaders, scanId!),
-          getScanCompliance(authHeaders, scanId!),
           loadScanExperience(authHeaders, scanId!),
           getScanTimeline(authHeaders, scanId!),
+          listComplianceFrameworks(authHeaders).catch(() => [] as ComplianceFramework[]),
         ]);
         if (cancelled) return;
         setAssets(a);
-        setCompliance(comp);
         setScanRiskSummary(experience.summary);
         setFixPriorities(experience.priorities);
         setTimeline(tl);
+        if (fw.length > 0) {
+          setFrameworks(fw);
+          const defaultFw =
+            fw.find((f) => f.framework_id === DEFAULT_FRAMEWORK_ID) ?? fw[0];
+          setSelectedFrameworkId(defaultFw.framework_id);
+        }
         setLoadError(null);
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load scan data");
@@ -98,6 +109,31 @@ export function ScanDetailPage() {
       cancelled = true;
     };
   }, [authHeaders, scanId, terminal]);
+
+  useEffect(() => {
+    if (!scanId || !terminal) return;
+    let cancelled = false;
+    setComplianceLoading(true);
+    getScanCompliance(authHeaders, scanId, selectedFrameworkId)
+      .then((comp) => {
+        if (!cancelled) {
+          setCompliance(comp);
+          setComplianceLoading(false);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setCompliance(null);
+          setComplianceLoading(false);
+          if (tab === "compliance") {
+            setLoadError(e instanceof Error ? e.message : "Failed to load framework coverage");
+          }
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authHeaders, scanId, terminal, selectedFrameworkId, tab]);
 
   useEffect(() => {
     if (!scanId || !terminal || tab !== "issues" || findingsLoaded) return;
@@ -133,7 +169,7 @@ export function ScanDetailPage() {
     { id: "overview", label: "Overview" },
     { id: "issues", label: `Issues (${failCount})` },
     { id: "resources", label: `Resources (${assets.length})` },
-    { id: "compliance", label: "CIS compliance" },
+    { id: "compliance", label: copy.frameworkCoverage },
     { id: "timeline", label: "Timeline" },
   ];
 
@@ -148,7 +184,7 @@ export function ScanDetailPage() {
           ← Scans
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">Security scan report</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">{copy.scanReport}</h1>
           <StatusBadge status={scan.status} />
           {!terminal && <span className="text-xs text-blue-600 animate-pulse">Updating…</span>}
         </div>
@@ -188,7 +224,7 @@ export function ScanDetailPage() {
           <div className="flex flex-wrap items-center gap-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <ScoreRing score={scanRiskSummary?.score ?? compliance?.score ?? null} />
             <div>
-              <p className="text-sm text-slate-500">Overall security score</p>
+              <p className="text-sm text-slate-500">{copy.overallSecurityScore}</p>
               <p className="mt-1 text-lg font-medium text-slate-900">
                 {failCount === 0
                   ? "No open issues"
@@ -239,11 +275,8 @@ export function ScanDetailPage() {
                   </div>
                   <SeverityBadge severity={f.severity} />
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid gap-3 sm:grid-cols-1">
                   <InfoBlock label="Risk" value={findingRiskSummary(f)} />
-                  {cisControl(f) && (
-                    <InfoBlock label="Compliance" value={`Fails ${cisControl(f)}`} />
-                  )}
                 </div>
                 <p className="mt-3 text-sm font-medium text-indigo-600">View details →</p>
               </Link>
@@ -330,13 +363,53 @@ export function ScanDetailPage() {
         </div>
       )}
 
-      {tab === "compliance" && compliance && (
+      {tab === "compliance" && (
         <div className="space-y-6">
+          {frameworks.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {frameworks.map((fw) => (
+                <button
+                  key={fw.framework_id}
+                  type="button"
+                  onClick={() => setSelectedFrameworkId(fw.framework_id)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                    selectedFrameworkId === fw.framework_id
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {customerFrameworkTitle(fw.display_title ?? fw.title)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {complianceLoading && !compliance && (
+            <p className="text-slate-500">Loading framework coverage…</p>
+          )}
+
+          {!complianceLoading && !compliance && (
+            <p className="text-slate-500">
+              Framework coverage is not available for this scan yet. Run a new scan after connecting
+              your account.
+            </p>
+          )}
+
+          {compliance && (
+            <>
           <div className="flex flex-wrap items-center gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <ScoreRing score={compliance.score} size="md" />
             <div>
-              <h2 className="text-xl font-semibold text-slate-900">{compliance.framework_title}</h2>
+              <h2 className="text-xl font-semibold text-slate-900">
+                {customerFrameworkTitle(compliance.display_title ?? compliance.framework_title)}
+              </h2>
+              <p className="text-sm text-slate-500">{copy.securityScore}</p>
               <p className="text-3xl font-bold text-slate-900">{compliance.score.toFixed(0)}%</p>
+              {compliance.coverage && (
+                <p className="mt-1 text-xs text-slate-400">
+                  {compliance.coverage.automated} automated · {compliance.coverage.manual} manual
+                </p>
+              )}
             </div>
           </div>
 
@@ -369,15 +442,15 @@ export function ScanDetailPage() {
 
           <details className="rounded-xl border border-slate-200 bg-white">
             <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-600">
-              All CIS controls ({compliance.controls.length})
+              {copy.allRequirements} ({compliance.controls.length})
             </summary>
             <div className="border-t border-slate-100">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="px-4 py-2">Control</th>
+                    <th className="px-4 py-2">ID</th>
                     <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2">Title</th>
+                    <th className="px-4 py-2">{copy.requirementColumn}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -387,13 +460,17 @@ export function ScanDetailPage() {
                       <td className={`px-4 py-2 font-medium capitalize ${controlStatusTone(c.status)}`}>
                         {c.status}
                       </td>
-                      <td className="px-4 py-2 text-slate-700">{c.title}</td>
+                      <td className="px-4 py-2 text-slate-700">
+                        {c.display_title ?? c.title}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </details>
+            </>
+          )}
         </div>
       )}
 

@@ -8,7 +8,6 @@ import {
   awsCliFix,
   awsConsoleUrl,
   businessImpact,
-  cisControl,
   cloudformationFix,
   estimatedFixMinutes,
   fixInstruction,
@@ -19,6 +18,7 @@ import {
   riskSummary,
   terraformFix,
 } from "../lib/securityPresentation";
+import { copy, customerFrameworkTags } from "../lib/productCopy";
 import type { Asset, FindingDetail } from "../types/platform";
 
 export function FindingDetailPage() {
@@ -66,14 +66,13 @@ export function FindingDetailPage() {
   const cli = awsCliFix(finding);
   const tf = terraformFix(finding);
   const cfn = cloudformationFix(finding);
-  const frameworks = frameworkTags(finding);
-  const cis = cisControl(finding);
+  const frameworks = customerFrameworkTags(frameworkTags(finding));
 
   return (
     <div className="space-y-6">
       <header>
         <Link to={`/scans/${scanId}`} className="text-sm text-indigo-600 hover:underline">
-          ← Back to scan report
+          ← {copy.backToReport}
         </Link>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">{riskHeadline(finding)}</h1>
@@ -100,12 +99,7 @@ export function FindingDetailPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Why this matters</h2>
-        <p className="mt-2 text-slate-700">
-          {finding.description ?? riskSummary(finding)}
-          {cis && (
-            <span className="mt-2 block text-sm text-slate-500">This fails {cis}.</span>
-          )}
-        </p>
+        <p className="mt-2 text-slate-700">{finding.description ?? riskSummary(finding)}</p>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -156,7 +150,9 @@ export function FindingDetailPage() {
 
       {frameworks.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Frameworks</h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+            {copy.frameworkCoverage}
+          </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {frameworks.map((tag) => (
               <span
@@ -185,7 +181,7 @@ export function FindingDetailPage() {
               {finding.technical_title}
             </p>
             <p className="mt-2">
-              <span className="text-slate-400">Policy ID:</span>{" "}
+              <span className="text-slate-400">{copy.securityCheckId}:</span>{" "}
               <code className="font-mono">{finding.policy_id}</code>
             </p>
             <p className="mt-2">

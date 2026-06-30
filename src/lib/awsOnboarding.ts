@@ -77,7 +77,7 @@ export const SCAN_PROGRESS_STEPS = [
   { key: "s3", label: "Collecting S3…" },
   { key: "ec2", label: "Collecting EC2…" },
   { key: "policies", label: "Analyzing security policies…" },
-  { key: "compliance", label: "Calculating compliance score…" },
+  { key: "compliance", label: "Calculating security score…" },
   { key: "done", label: "Done" },
 ] as const;
 

@@ -5,6 +5,7 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import { useAuth } from "../contexts/AuthContext";
 import { listIntegrations } from "../lib/api";
 import { formatDate } from "../lib/format";
+import { copy } from "../lib/productCopy";
 import type { Integration } from "../types/platform";
 
 export function IntegrationsPage() {
@@ -44,7 +45,7 @@ export function IntegrationsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Integrations</h1>
-          <p className="text-sm text-slate-500">Connect AWS accounts for security scanning</p>
+          <p className="text-sm text-slate-500">Connect AWS accounts for {copy.productName.toLowerCase()}</p>
         </div>
         {canWrite && (
           <button
@@ -127,9 +128,9 @@ export function IntegrationsPage() {
 
       {integrations.length > 0 && (
         <p className="text-sm text-slate-500">
-          Ready to scan?{" "}
+          Ready for an assessment?{" "}
           <Link to="/scans" className="font-medium text-indigo-600 hover:underline">
-            Go to Scans → Run scan
+            Go to Assessments → {copy.runAssessment}
           </Link>
         </p>
       )}

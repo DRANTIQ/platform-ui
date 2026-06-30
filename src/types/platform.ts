@@ -147,6 +147,7 @@ export type ControlResult = {
   status: string;
   severity: string | null;
   title: string;
+  display_title?: string | null;
   domain: string | null;
   mapped_policy_ids: string[];
   fail_count: number;
@@ -156,13 +157,36 @@ export type ControlResult = {
   evaluated_at: string;
 };
 
+export type ComplianceFramework = {
+  framework_id: string;
+  title: string;
+  display_title?: string | null;
+  provider: string;
+  version_label: string;
+  customer_visible?: boolean;
+  requires_license?: boolean;
+};
+
+export type ComplianceCoverage = {
+  total_checks: number;
+  assessed: number;
+  automated: number;
+  not_assessed: number;
+  manual: number;
+  pass: number;
+  fail: number;
+  pass_rate: number;
+};
+
 export type ScanCompliance = {
   framework_id: string;
   framework_title: string;
+  display_title?: string | null;
   version_label: string;
   scan_id: string;
   score: number;
   summary: Record<string, number>;
+  coverage?: ComplianceCoverage;
   evaluated_at: string;
   controls: ControlResult[];
 };
