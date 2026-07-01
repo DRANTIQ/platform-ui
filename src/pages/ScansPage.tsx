@@ -3,15 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { createScan, listIntegrations, listScans } from "../lib/api";
 import { formatDate, formatRelativeTime } from "../lib/format";
+import { integrationLabel } from "../lib/integrationDisplay";
 import { copy } from "../lib/productCopy";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type { Integration, Scan } from "../types/platform";
 
 const INTEGRATION_STORAGE_KEY = "platform-ui:selected-integration";
-
-function integrationLabel(integration: Integration): string {
-  return `AWS ${integration.account_id} (${integration.status})`;
-}
 
 export function ScansPage() {
   const { authHeaders, canWrite } = useAuth();
@@ -53,11 +50,11 @@ export function ScansPage() {
 
   async function handleRunScan() {
     if (!integrations.length) {
-      setError("No AWS integration registered for this tenant");
+      setError("No cloud integration registered for this tenant");
       return;
     }
     if (!selectedIntegrationId) {
-      setError("Select an AWS account to scan");
+      setError("Select an account to scan");
       return;
     }
     setRunning(true);
@@ -81,13 +78,13 @@ export function ScansPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Security assessments</h1>
           <p className="text-sm text-slate-500">
-            Run {copy.productName.toLowerCase()} on your AWS accounts
+            Run {copy.productName.toLowerCase()} on your AWS and Azure environments
           </p>
         </div>
         {canWrite && integrations.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-sm text-slate-600">
-              <span className="sr-only">AWS account</span>
+              <span className="sr-only">Cloud account</span>
               <select
                 value={selectedIntegrationId}
                 onChange={(e) => handleIntegrationChange(e.target.value)}
@@ -127,7 +124,7 @@ export function ScansPage() {
 
       {!integrations.length && canWrite && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Connect an AWS account before running a scan.{" "}
+          Connect a cloud account before running a scan.{" "}
           <Link to="/integrations" className="font-medium text-indigo-600 hover:underline">
             Go to Integrations
           </Link>
@@ -149,9 +146,9 @@ export function ScansPage() {
                 <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
                   {integrations.length === 0 ? (
                     <>
-                      Connect your AWS account to begin your first security assessment.{" "}
+                      Connect AWS or Azure to begin your first security assessment.{" "}
                       <Link to="/integrations" className="font-medium text-indigo-600 hover:underline">
-                        Connect AWS
+                        Connect cloud account
                       </Link>
                     </>
                   ) : (

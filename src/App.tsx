@@ -22,6 +22,7 @@ import { SignupPage } from "./pages/SignupPage";
 import { SignupVerifyPage } from "./pages/SignupVerifyPage";
 import { TeamPage } from "./pages/TeamPage";
 import { ConnectAwsPage } from "./pages/welcome/ConnectAwsPage";
+import { ConnectAzurePage } from "./pages/welcome/ConnectAzurePage";
 import { ScanProgressPage } from "./pages/welcome/ScanProgressPage";
 import { ScanResultsPage } from "./pages/welcome/ScanResultsPage";
 import { WelcomePage } from "./pages/welcome/WelcomePage";
@@ -51,6 +52,7 @@ export default function App() {
           >
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/welcome/connect-aws" element={<ConnectAwsPage />} />
+            <Route path="/welcome/connect-azure" element={<ConnectAzurePage />} />
             <Route path="/welcome/scan" element={<ScanProgressPage />} />
             <Route path="/welcome/results" element={<ScanResultsPage />} />
           </Route>

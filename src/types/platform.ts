@@ -18,7 +18,9 @@ export type Integration = {
   tenant_id: string;
   provider: string;
   account_id: string;
-  role_arn: string;
+  role_arn?: string | null;
+  azure_tenant_id?: string | null;
+  azure_client_id?: string | null;
   regions: string[];
   status: string;
   created_at: string;
@@ -35,6 +37,8 @@ export type FindingRemediation = {
   estimated_minutes?: number | null;
   framework_mappings: string[];
   aws_cli: string | null;
+  azure_cli?: string | null;
+  azure_portal_steps?: string[];
   terraform: string | null;
   cloudformation: string | null;
   aws_console_steps?: string[];
@@ -264,6 +268,8 @@ export type WorkspaceSummary = {
 export type OnboardingState =
   | "WORKSPACE_CREATED"
   | "AWS_CONNECTED"
+  | "AZURE_CONNECTED"
+  | "CLOUD_CONNECTED"
   | "FIRST_SCAN_STARTED"
   | "FIRST_SCAN_COMPLETE"
   | "ONBOARDING_COMPLETE";

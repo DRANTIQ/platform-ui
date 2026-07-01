@@ -4,9 +4,19 @@ export function isOnboardingComplete(state: string | undefined | null): boolean 
   return state === "ONBOARDING_COMPLETE";
 }
 
+export function isCloudConnected(state: string | undefined | null): boolean {
+  return (
+    state === "AWS_CONNECTED" ||
+    state === "AZURE_CONNECTED" ||
+    state === "CLOUD_CONNECTED"
+  );
+}
+
 export function welcomePathForState(state: string | undefined | null): string {
   switch (state as OnboardingState) {
     case "AWS_CONNECTED":
+    case "AZURE_CONNECTED":
+    case "CLOUD_CONNECTED":
       return "/welcome/scan";
     case "FIRST_SCAN_STARTED":
       return "/welcome/scan";

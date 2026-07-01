@@ -9,6 +9,7 @@ import {
   listScans,
 } from "../lib/api";
 import { formatRelativeTime } from "../lib/format";
+import { providerBadgeLabel } from "../lib/integrationDisplay";
 import { loadScanExperience } from "../lib/scanExperience";
 import { copy } from "../lib/productCopy";
 import { environmentHealthLabel, scoreDisplay } from "../lib/riskScore";
@@ -25,6 +26,7 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasIntegration, setHasIntegration] = useState(false);
+  const [provider, setProvider] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +39,10 @@ export function DashboardPage() {
         if (cancelled) return;
         setScans(rows);
         setHasIntegration(integrations.length > 0);
-        if (integrations[0]) setAccountId(integrations[0].account_id);
+        if (integrations[0]) {
+          setAccountId(integrations[0].account_id);
+          setProvider(integrations[0].provider);
+        }
 
         const latest = rows.find(
           (s) => s.status === "completed" || s.status === "completed_with_errors",
@@ -107,13 +112,13 @@ export function DashboardPage() {
           {!hasIntegration ? (
             <>
               <p className="text-slate-600">
-                Connect your AWS account to begin your first security assessment.
+                Connect AWS or Azure to begin your first security assessment.
               </p>
               <Link
                 to="/integrations"
                 className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
               >
-                Connect AWS account
+                Connect cloud account
               </Link>
             </>
           ) : (
@@ -148,6 +153,11 @@ export function DashboardPage() {
           <div className="max-w-2xl">
             <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
               {copy.yourEnvironment}
+              {provider && (
+                <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold normal-case text-slate-700">
+                  {providerBadgeLabel(provider)}
+                </span>
+              )}
             </p>
             <h1 className="mt-1 text-2xl font-bold text-slate-900">{health}</h1>
             <p className="mt-2 text-slate-600">
@@ -209,7 +219,9 @@ export function DashboardPage() {
                 {formatRelativeTime(latest.completed_at ?? latest.created_at)}
               </span>
               {accountId && (
-                <span className="ml-3 font-mono text-slate-500">Account {accountId}</span>
+                <span className="ml-3 font-mono text-slate-500">
+                  {provider === "azure" ? "Subscription" : "Account"} {accountId}
+                </span>
               )}
             </div>
             <Link

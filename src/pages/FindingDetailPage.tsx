@@ -8,12 +8,15 @@ import { formatDate } from "../lib/format";
 import {
   awsCliFix,
   awsConsoleUrl,
+  azureCliFix,
+  azurePortalSteps,
   businessImpact,
   cloudformationFix,
   estimatedFixMinutes,
   fixInstruction,
   formatEvidenceSummary,
   frameworkTags,
+  isAzureFinding,
   resourceRegion,
   riskHeadline,
   riskSummary,
@@ -64,10 +67,12 @@ export function FindingDetailPage() {
   }
 
   const region = resourceRegion(finding, assets);
-  const consoleUrl = awsConsoleUrl(finding);
-  const cli = awsCliFix(finding);
-  const tf = terraformFix(finding);
-  const cfn = cloudformationFix(finding);
+  const azure = isAzureFinding(finding);
+  const consoleUrl = azure ? null : awsConsoleUrl(finding);
+  const cli = azure ? azureCliFix(finding) : awsCliFix(finding);
+  const portalSteps = azure ? azurePortalSteps(finding) : [];
+  const tf = azure ? null : terraformFix(finding);
+  const cfn = azure ? null : cloudformationFix(finding);
   const frameworks = customerFrameworkTags(frameworkTags(finding));
   const signals = finding.risk_signals;
   const riskScore = signals?.risk_score;
@@ -146,10 +151,22 @@ export function FindingDetailPage() {
         <p className="mt-2 text-slate-800">{fixInstruction(finding)}</p>
         {cli && (
           <div className="mt-4">
-            <p className="text-xs font-medium uppercase text-slate-400">AWS CLI</p>
+            <p className="text-xs font-medium uppercase text-slate-400">
+              {azure ? "Azure CLI" : "AWS CLI"}
+            </p>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-4 text-xs text-slate-100">
               {cli}
             </pre>
+          </div>
+        )}
+        {portalSteps.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase text-slate-400">Azure Portal</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+              {portalSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
           </div>
         )}
         {tf && (

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Assign Reader role to an existing Drantiq service principal on a subscription."
+  },
+  "parameters": {
+    "principalId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID of the Drantiq service principal (Entra ID → Enterprise applications → your app → Object ID)."
+      }
+    },
+    "roleDefinitionId": {
+      "type": "string",
+      "defaultValue": "acdd72a7-3385-48ef-bd42-f606fba81eb7",
+      "metadata": {
+        "description": "Built-in Reader role GUID."
+      }
+    }
+  },
+  "variables": {
+    "roleAssignmentName": "[guid(subscription().id, parameters('principalId'), parameters('roleDefinitionId'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[variables('roleAssignmentName')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "ServicePrincipal"
+      }
+    }
+  ],
+  "outputs": {
+    "roleAssignmentId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentName'))]"
+    }
+  }
+}

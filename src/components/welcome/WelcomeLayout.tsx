@@ -3,7 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 
 const STEPS = [
   { path: "/welcome", label: "Welcome" },
-  { path: "/welcome/connect-aws", label: "Connect AWS" },
+  { path: "/welcome/connect", label: "Connect cloud" },
   { path: "/welcome/scan", label: "Run scan" },
   { path: "/welcome/results", label: "Review results" },
 ] as const;
@@ -11,7 +11,9 @@ const STEPS = [
 function stepIndex(pathname: string): number {
   if (pathname.startsWith("/welcome/results")) return 3;
   if (pathname.startsWith("/welcome/scan")) return 2;
-  if (pathname.startsWith("/welcome/connect-aws")) return 1;
+  if (pathname.startsWith("/welcome/connect-aws") || pathname.startsWith("/welcome/connect-azure")) {
+    return 1;
+  }
   return 0;
 }
 

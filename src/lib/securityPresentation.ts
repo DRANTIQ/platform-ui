@@ -35,9 +35,24 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
   "security.key": "KMS Key",
 };
 
+export const AZURE_RESOURCE_TYPE_LABEL: Record<string, string> = {
+  "storage.bucket": "Storage Account",
+  "network.security_group": "Network Security Group",
+  "network.vpc": "Virtual Network",
+  "governance.hub": "Microsoft Defender",
+  "identity.account": "Azure Subscription",
+  "compute.instance": "Virtual Machine",
+  "database.instance": "Database Server",
+  "security.key": "Key Vault",
+};
+
+function isAzurePolicy(policyId?: string): boolean {
+  return Boolean(policyId?.startsWith("AZURE_"));
+}
+
 const TIMELINE_LABELS: Record<string, string> = {
   scan: "Scan started",
-  "collection.started": "Collecting AWS resources",
+  "collection.started": "Collecting cloud resources",
   "collection.completed": "Resources collected",
   "inventory.updated": "Building resource inventory",
   "policy.evaluate": "Evaluating security policies",
@@ -78,6 +93,9 @@ export function businessImpact(finding: Finding | FindingDetail): string {
 export function fixInstruction(finding: Finding | FindingDetail): string {
   const r = rem(finding);
   if (r?.summary) return r.summary;
+  if (isAzurePolicy(finding.policy_id)) {
+    return r?.fix_summary ?? "Review the affected resource in Azure and apply the recommended control.";
+  }
   return (
     r?.fix_summary ??
     "Review the affected resource in AWS and apply the recommended security control."
@@ -100,7 +118,10 @@ export function estimatedFixMinutes(finding: Finding | FindingDetail): number {
   return { critical: 5, high: 5, medium: 3, low: 2, info: 2 }[finding.severity] ?? 3;
 }
 
-export function resourceLabel(resourceType: string): string {
+export function resourceLabel(resourceType: string, policyId?: string): string {
+  if (isAzurePolicy(policyId)) {
+    return AZURE_RESOURCE_TYPE_LABEL[resourceType] ?? resourceType.replace(/\./g, " ");
+  }
   return RESOURCE_TYPE_LABEL[resourceType] ?? resourceType.replace(/\./g, " ");
 }
 
@@ -249,6 +270,18 @@ export function awsCliFix(finding: Finding): string | null {
   return rem(finding)?.aws_cli ?? null;
 }
 
+export function azureCliFix(finding: Finding | FindingDetail): string | null {
+  return rem(finding)?.azure_cli ?? null;
+}
+
+export function azurePortalSteps(finding: Finding | FindingDetail): string[] {
+  return rem(finding)?.azure_portal_steps ?? [];
+}
+
+export function isAzureFinding(finding: Finding | FindingDetail): boolean {
+  return isAzurePolicy(finding.policy_id);
+}
+
 export function terraformFix(finding: Finding): string | null {
   return rem(finding)?.terraform ?? null;
 }
@@ -267,7 +300,7 @@ export function groupAssetsByType(assets: Asset[]): { label: string; type: strin
   return [...map.entries()]
     .map(([type, items]) => ({
       type,
-      label: resourceLabel(type),
+      label: resourceLabel(type, items[0]?.provider === "azure" ? "AZURE_" : undefined),
       count: items.length,
       items,
     }))

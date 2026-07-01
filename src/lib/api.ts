@@ -196,6 +196,21 @@ export function createAwsIntegration(
   return request(auth, "/v1/integrations/aws", { method: "POST", body });
 }
 
+export type AzureIntegrationCreate = {
+  subscription_id: string;
+  azure_tenant_id: string;
+  azure_client_id: string;
+  client_secret: string;
+  locations: string[];
+};
+
+export function createAzureIntegration(
+  auth: AuthHeaders,
+  body: AzureIntegrationCreate,
+): Promise<Integration> {
+  return request(auth, "/v1/integrations/azure", { method: "POST", body });
+}
+
 export function listScans(auth: AuthHeaders, limit = 50): Promise<Scan[]> {
   return request(auth, "/v1/scans", { params: { limit } });
 }

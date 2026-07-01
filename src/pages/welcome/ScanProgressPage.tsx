@@ -8,16 +8,23 @@ import {
   updateOnboardingState,
 } from "../../lib/api";
 import { SCAN_PROGRESS_STEPS } from "../../lib/awsOnboarding";
+import { AZURE_SCAN_PROGRESS_STEPS } from "../../lib/azureOnboarding";
 import { isTerminalStatus } from "../../lib/format";
+import type { Integration } from "../../types/platform";
 
 export function ScanProgressPage() {
   const { authHeaders, refreshMe } = useAuth();
   const navigate = useNavigate();
   const [scanId, setScanId] = useState<string | null>(null);
+  const [integration, setIntegration] = useState<Integration | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
 
   const { scan } = useScanPolling(authHeaders, scanId ?? undefined, !!scanId);
+
+  const isAzure = integration?.provider === "azure";
+  const progressSteps = isAzure ? AZURE_SCAN_PROGRESS_STEPS : SCAN_PROGRESS_STEPS;
+  const envLabel = isAzure ? "Azure" : "AWS";
 
   useEffect(() => {
     let cancelled = false;
@@ -25,11 +32,13 @@ export function ScanProgressPage() {
       try {
         const integrations = await listIntegrations(authHeaders);
         if (!integrations.length) {
-          navigate("/welcome/connect-aws", { replace: true });
+          navigate("/welcome", { replace: true });
           return;
         }
+        const selected = integrations[0];
+        if (!cancelled) setIntegration(selected);
         await updateOnboardingState(authHeaders, "FIRST_SCAN_STARTED");
-        const row = await createScan(authHeaders, integrations[0].id);
+        const row = await createScan(authHeaders, selected.id);
         if (!cancelled) setScanId(row.id);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to start scan");
@@ -45,35 +54,37 @@ export function ScanProgressPage() {
     if (!scanId) return;
     const timer = window.setInterval(() => {
       setActiveStep((s) => {
-        if (scan && isTerminalStatus(scan.status)) return SCAN_PROGRESS_STEPS.length - 1;
-        return Math.min(s + 1, SCAN_PROGRESS_STEPS.length - 2);
+        if (scan && isTerminalStatus(scan.status)) return progressSteps.length - 1;
+        return Math.min(s + 1, progressSteps.length - 2);
       });
     }, 3500);
     return () => window.clearInterval(timer);
-  }, [scanId, scan]);
+  }, [scanId, scan, progressSteps.length]);
 
   useEffect(() => {
     if (!scan || !isTerminalStatus(scan.status)) return;
     async function complete() {
-      setActiveStep(SCAN_PROGRESS_STEPS.length - 1);
+      setActiveStep(progressSteps.length - 1);
       await updateOnboardingState(authHeaders, "FIRST_SCAN_COMPLETE");
       await refreshMe();
       await new Promise((r) => setTimeout(r, 800));
       navigate("/welcome/results", { replace: true, state: { scanId: scan!.id } });
     }
     void complete();
-  }, [scan, authHeaders, navigate, refreshMe]);
+  }, [scan, authHeaders, navigate, refreshMe, progressSteps.length]);
 
-  const progress = Math.round(((activeStep + 1) / SCAN_PROGRESS_STEPS.length) * 100);
+  const progress = Math.round(((activeStep + 1) / progressSteps.length) * 100);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       <p className="text-sm font-medium text-indigo-600">Step 3 of 4 · Run scan</p>
-      <h1 className="mt-1 text-2xl font-bold text-slate-900">Analyzing your AWS environment…</h1>
+      <h1 className="mt-1 text-2xl font-bold text-slate-900">
+        Analyzing your {envLabel} environment…
+      </h1>
       <p className="mt-2 text-slate-600">This usually takes a few minutes. You can keep this tab open.</p>
 
       <ul className="mt-8 space-y-3">
-        {SCAN_PROGRESS_STEPS.map((step, i) => {
+        {progressSteps.map((step, i) => {
           const done = i < activeStep;
           const current = i === activeStep;
           return (
