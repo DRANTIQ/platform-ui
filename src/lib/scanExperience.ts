@@ -8,8 +8,10 @@ import {
 } from "./api";
 import {
   estimatedFixMinutes,
+  estimateRiskScore,
   prioritizedFindings,
   resourceDisplayName,
+  resourceInventoryStats,
   riskHeadline,
   riskSummary,
   severityCounts,
@@ -46,6 +48,8 @@ async function buildLegacyScanExperience(
   ]);
   const fails = findings.filter((f) => f.result === "fail");
   const sev = severityCounts(fails);
+  const resourceIds = new Set(findings.map((f) => f.resource_id).filter(Boolean));
+  const inventory = resourceInventoryStats(fails, resourceIds.size);
 
   const summary: ScanRiskSummary = {
     score: comp.score,
@@ -55,6 +59,7 @@ async function buildLegacyScanExperience(
     medium: sev.medium,
     low: sev.low,
     info: sev.info,
+    ...inventory,
     top_risks: uniqueIssuesByPolicy(fails).slice(0, 5).map((f) => ({
       finding_id: f.id,
       policy_id: f.policy_id,
@@ -66,6 +71,7 @@ async function buildLegacyScanExperience(
       why_it_matters: riskSummary(f),
       business_impact: f.remediation?.business_impact ?? null,
       estimated_fix_minutes: estimatedFixMinutes(f),
+      risk_score: estimateRiskScore(f),
     })),
   };
 
@@ -85,6 +91,7 @@ async function buildLegacyScanExperience(
     frameworks: [],
     internet_exposed: false,
     data_sensitive: false,
+    risk_score: estimateRiskScore(f),
   }));
 
   return { summary, priorities };

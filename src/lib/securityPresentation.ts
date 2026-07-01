@@ -1,5 +1,13 @@
 import type { Asset, Finding, FindingDetail, FindingRemediation, TimelineEvent } from "../types/platform";
 
+const SEVERITY_RISK_BASE: Record<string, number> = {
+  critical: 92,
+  high: 72,
+  medium: 48,
+  low: 28,
+  info: 12,
+};
+
 const SEVERITY_ORDER: Record<string, number> = {
   critical: 0,
   high: 1,
@@ -7,6 +15,8 @@ const SEVERITY_ORDER: Record<string, number> = {
   low: 3,
   info: 4,
 };
+
+const DATA_SENSITIVE_TYPES = new Set(["storage.bucket", "storage.filesystem", "database.instance"]);
 
 export const RESOURCE_TYPE_LABEL: Record<string, string> = {
   "storage.bucket": "S3 Bucket",
@@ -126,6 +136,38 @@ export function severityCounts(findings: Finding[]): Record<string, number> {
     if (s in counts) counts[s]++;
   }
   return counts;
+}
+
+/** Approximate backend composite risk score for legacy API fallback. */
+export function estimateRiskScore(finding: Finding): number {
+  let score = SEVERITY_RISK_BASE[finding.severity] ?? 45;
+  const ev = finding.evidence ?? {};
+  const props = (ev.properties as Record<string, unknown>) ?? ev;
+  const sensitive = DATA_SENSITIVE_TYPES.has(finding.resource_type);
+  const internet =
+    finding.resource_type === "storage.bucket" &&
+    (props.block_public_acls === false ||
+      props.block_public_policy === false ||
+      props.public_access_block_enabled === false ||
+      props.is_public === true);
+  if (internet) score = Math.min(100, score + 12);
+  if (sensitive) score = Math.min(100, score + 8);
+  return score;
+}
+
+export function resourceInventoryStats(
+  findings: Finding[],
+  resourceTotal: number,
+): { cloud_resources: number; resources_at_risk: number; resources_protected: number } {
+  const atRiskIds = new Set(
+    findings.filter((f) => f.result === "fail" && f.resource_id).map((f) => f.resource_id),
+  );
+  const atRisk = atRiskIds.size;
+  return {
+    cloud_resources: resourceTotal,
+    resources_at_risk: atRisk,
+    resources_protected: Math.max(0, resourceTotal - atRisk),
+  };
 }
 
 export function totalFixMinutes(findings: Finding[]): number {

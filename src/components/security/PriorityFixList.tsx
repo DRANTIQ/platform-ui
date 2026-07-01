@@ -7,6 +7,7 @@ import {
   riskHeadline,
 } from "../../lib/securityPresentation";
 import { SeverityBadge } from "./SeverityBadge";
+import { RiskScoreBadge } from "./RiskScoreBadge";
 
 export function PriorityFixList({
   items,
@@ -47,6 +48,9 @@ export function PriorityFixList({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            {item.risk_score != null && item.risk_score > 0 && (
+              <RiskScoreBadge score={item.risk_score} />
+            )}
             <SeverityBadge severity={item.severity} />
             <span className="text-sm text-slate-500">
               {item.estimated_fix_minutes ?? "—"} min
@@ -90,6 +94,9 @@ export function TopRiskListItem({
           {risk.why_it_matters ? ` · ${risk.why_it_matters}` : ""}
         </p>
       </div>
+      {risk.risk_score != null && risk.risk_score > 0 && (
+        <RiskScoreBadge score={risk.risk_score} />
+      )}
       <SeverityBadge severity={risk.severity} />
     </Link>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { RiskSignalBadges } from "../components/security/RiskSignalBadges";
 import { SeverityBadge } from "../components/security/SeverityBadge";
 import { getFinding, listAssets } from "../lib/api";
 import { formatDate } from "../lib/format";
@@ -19,6 +20,7 @@ import {
   terraformFix,
 } from "../lib/securityPresentation";
 import { copy, customerFrameworkTags } from "../lib/productCopy";
+import { scoreDisplay } from "../lib/riskScore";
 import type { Asset, FindingDetail } from "../types/platform";
 
 export function FindingDetailPage() {
@@ -51,12 +53,12 @@ export function FindingDetailPage() {
     };
   }, [authHeaders, scanId, findingId]);
 
-  if (loading) return <p className="text-slate-500">Loading issue details…</p>;
+  if (loading) return <p className="text-slate-500">Loading risk details…</p>;
 
   if (error || !finding) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-        {error || "Issue not found"}
+        {error || "Risk not found"}
       </div>
     );
   }
@@ -67,8 +69,10 @@ export function FindingDetailPage() {
   const tf = terraformFix(finding);
   const cfn = cloudformationFix(finding);
   const frameworks = customerFrameworkTags(frameworkTags(finding));
-  const riskScore = finding.risk_signals?.risk_score;
+  const signals = finding.risk_signals;
+  const riskScore = signals?.risk_score;
   const related = finding.related_resources ?? [];
+  const scoreText = riskScore != null ? scoreDisplay(riskScore) : null;
 
   return (
     <div className="space-y-6">
@@ -76,37 +80,56 @@ export function FindingDetailPage() {
         <Link to={`/scans/${scanId}`} className="text-sm text-indigo-600 hover:underline">
           ← {copy.backToReport}
         </Link>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-900">{riskHeadline(finding)}</h1>
-          <SeverityBadge severity={finding.severity} />
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-900">{riskHeadline(finding)}</h1>
+              <SeverityBadge severity={finding.severity} />
+            </div>
+            {scoreText && (
+              <p className="mt-3 text-sm text-slate-500">
+                {copy.riskScore}{" "}
+                <span className="text-2xl font-bold text-slate-900">{scoreText.value}</span>{" "}
+                <span className="font-semibold text-slate-600">{scoreText.label}</span>
+              </p>
+            )}
+            {signals?.why_badges?.length ? (
+              <div className="mt-4">
+                <RiskSignalBadges badges={signals.why_badges} />
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
-      {/* Risk summary card */}
-      <section className="rounded-2xl border border-red-200 bg-red-50/50 p-6">
-        <p className="text-sm font-medium text-red-800">Risk</p>
-        <p className="mt-1 text-lg text-slate-900">{riskSummary(finding)}</p>
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+          {copy.whyThisMatters}
+        </h2>
+        <p className="mt-2 text-slate-800">{riskSummary(finding)}</p>
         <p className="mt-3 text-sm text-slate-700">
           <strong>Business impact:</strong> {businessImpact(finding)}
         </p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <DetailCard label={copy.affectedResource} value={finding.affected_resource} />
-        <DetailCard label="Resource type" value={finding.resource_type_label} />
-        <DetailCard label="Region" value={region} />
-        <DetailCard label="Severity" value={finding.severity} capitalize />
-        {riskScore != null && (
-          <DetailCard label={copy.riskScore} value={`${riskScore} / 100`} />
-        )}
-        <DetailCard label="Estimated fix" value={`${estimatedFixMinutes(finding)} minutes`} />
-      </div>
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+          {copy.affectedResource}
+        </h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <DetailRow label="Resource" value={finding.affected_resource} />
+          <DetailRow label="Type" value={finding.resource_type_label} />
+          <DetailRow label="Region" value={region} />
+          <DetailRow label="Estimated fix" value={`${estimatedFixMinutes(finding)} minutes`} />
+        </div>
+      </section>
 
       {related.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">
             {copy.relatedResources}
           </h2>
+          <p className="mt-1 text-xs text-slate-500">Inventory relationships — not an attack path.</p>
           <ul className="mt-3 space-y-2">
             {related.map((rel) => (
               <li key={rel.resource_id} className="text-sm text-slate-700">
@@ -119,12 +142,7 @@ export function FindingDetailPage() {
       )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Why this matters</h2>
-        <p className="mt-2 text-slate-700">{finding.description ?? riskSummary(finding)}</p>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">How to fix</h2>
+        <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">{copy.howToFix}</h2>
         <p className="mt-2 text-slate-800">{fixInstruction(finding)}</p>
         {cli && (
           <div className="mt-4">
@@ -172,7 +190,7 @@ export function FindingDetailPage() {
       {frameworks.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">
-            {copy.frameworkCoverage}
+            {copy.complianceLens}
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {frameworks.map((tag) => (
@@ -198,8 +216,7 @@ export function FindingDetailPage() {
         {showTechnical && (
           <div className="border-t border-slate-200 px-5 py-4 text-sm">
             <p>
-              <span className="text-slate-400">Technical title:</span>{" "}
-              {finding.technical_title}
+              <span className="text-slate-400">Technical title:</span> {finding.technical_title}
             </p>
             <p className="mt-2">
               <span className="text-slate-400">{copy.securityControlId}:</span>{" "}
@@ -228,21 +245,11 @@ export function FindingDetailPage() {
   );
 }
 
-function DetailCard({
-  label,
-  value,
-  capitalize,
-}: {
-  label: string;
-  value: string;
-  capitalize?: boolean;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div>
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-sm font-medium text-slate-900 ${capitalize ? "capitalize" : ""}`}>
-        {value}
-      </p>
+      <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
     </div>
   );
 }

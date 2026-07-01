@@ -30,6 +30,7 @@ import {
   scanDurationLabel,
 } from "../lib/securityPresentation";
 import { copy, customerFrameworkTitle } from "../lib/productCopy";
+import { scoreDisplay } from "../lib/riskScore";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type {
   Asset,
@@ -225,10 +226,17 @@ export function ScanDetailPage() {
             <ScoreRing score={scanRiskSummary?.score ?? compliance?.score ?? null} />
             <div>
               <p className="text-sm text-slate-500">{copy.overallSecurityScore}</p>
+              {scanRiskSummary?.cloud_resources != null && (
+                <p className="mt-1 text-sm text-slate-600">
+                  {scanRiskSummary.cloud_resources} {copy.cloudResources.toLowerCase()} ·{" "}
+                  {scanRiskSummary.resources_protected ?? 0} {copy.resourcesProtected.toLowerCase()} ·{" "}
+                  {scanRiskSummary.resources_at_risk ?? 0} {copy.resourcesAtRisk.toLowerCase()}
+                </p>
+              )}
               <p className="mt-1 text-lg font-medium text-slate-900">
                 {failCount === 0
-                  ? "No open issues"
-                  : `${failCount} security issue${failCount !== 1 ? "s" : ""} found`}
+                  ? "No open risks"
+                  : `${failCount} open risk${failCount !== 1 ? "s" : ""}`}
               </p>
               <div className="mt-3">
                 <SeverityPills counts={severity} />
@@ -238,7 +246,7 @@ export function ScanDetailPage() {
 
           {topRisks.length > 0 && (
             <section className="space-y-2">
-              <h2 className="font-semibold text-slate-900">Top issues</h2>
+              <h2 className="font-semibold text-slate-900">{copy.topPriorities}</h2>
               {topRisks.slice(0, 3).map((risk, i) => (
                 <TopRiskListItem key={risk.finding_id} risk={risk} scanId={scanId!} index={i + 1} />
               ))}
@@ -404,7 +412,12 @@ export function ScanDetailPage() {
                 {customerFrameworkTitle(compliance.display_title ?? compliance.framework_title)}
               </h2>
               <p className="text-sm text-slate-500">{copy.securityScore}</p>
-              <p className="text-3xl font-bold text-slate-900">{compliance.score.toFixed(0)}%</p>
+              <p className="text-3xl font-bold text-slate-900">
+                {scoreDisplay(compliance.score).value}
+              </p>
+              <p className="text-sm font-semibold text-slate-600">
+                {scoreDisplay(compliance.score).label}
+              </p>
             </div>
           </div>
 

@@ -28,6 +28,9 @@ export function SeverityPills({ counts }: { counts: Record<string, number> }) {
   );
 }
 
+import type { SecurityScoreBand } from "./riskScore";
+import { scoreDisplay, securityScoreBand, securityScoreLabel } from "./riskScore";
+
 export function ScoreRing({ score, size = "lg" }: { score: number | null; size?: "lg" | "md" }) {
   if (score == null) {
     const dim = size === "lg" ? "h-28 w-28 text-lg" : "h-20 w-20 text-base";
@@ -37,14 +40,22 @@ export function ScoreRing({ score, size = "lg" }: { score: number | null; size?:
       </div>
     );
   }
+  const band: SecurityScoreBand = securityScoreBand(score);
   const tone =
-    score >= 80 ? "text-emerald-600" : score >= 50 ? "text-amber-600" : "text-red-600";
+    band === "excellent" ? "text-emerald-600" : band === "good" ? "text-amber-600" : "text-red-600";
   const ring =
-    score >= 80 ? "border-emerald-200 bg-emerald-50" : score >= 50 ? "border-amber-200 bg-amber-50" : "border-red-200 bg-red-50";
-  const dim = size === "lg" ? "h-28 w-28 text-3xl" : "h-20 w-20 text-xl";
+    band === "excellent"
+      ? "border-emerald-200 bg-emerald-50"
+      : band === "good"
+        ? "border-amber-200 bg-amber-50"
+        : "border-red-200 bg-red-50";
+  const dim = size === "lg" ? "h-28 w-28" : "h-20 w-20";
+  const { value } = scoreDisplay(score);
+  const label = securityScoreLabel(score);
   return (
     <div className={`flex ${dim} flex-col items-center justify-center rounded-full border-4 ${ring}`}>
-      <span className={`font-bold ${tone}`}>{score.toFixed(0)}%</span>
+      <span className={`font-bold ${tone} ${size === "lg" ? "text-3xl" : "text-xl"}`}>{value}</span>
+      <span className={`text-xs font-semibold ${tone}`}>{label}</span>
     </div>
   );
 }

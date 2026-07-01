@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { PriorityFixList, TopRiskListItem } from "../components/security/PriorityFixList";
-import { ScoreRing, SeverityPills } from "../components/security/SeverityBadge";
+import { ScoreRing } from "../components/security/SeverityBadge";
 import {
   listAssets,
   listIntegrations,
@@ -10,8 +10,8 @@ import {
 } from "../lib/api";
 import { formatRelativeTime } from "../lib/format";
 import { loadScanExperience } from "../lib/scanExperience";
-import { accountRiskSummary } from "../lib/securityPresentation";
 import { copy } from "../lib/productCopy";
+import { environmentHealthLabel, scoreDisplay } from "../lib/riskScore";
 import type { FixPriorityItem, Scan, ScanRiskSummary, TopRiskItem } from "../types/platform";
 
 export function DashboardPage() {
@@ -21,7 +21,6 @@ export function DashboardPage() {
   const [riskSummary, setRiskSummary] = useState<ScanRiskSummary | null>(null);
   const [priorities, setPriorities] = useState<FixPriorityItem[]>([]);
   const [resourceCount, setResourceCount] = useState(0);
-  const [fixMinutes, setFixMinutes] = useState(0);
   const [latestScanId, setLatestScanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,9 +57,6 @@ export function DashboardPage() {
         setRiskSummary(summary);
         setPriorities(fixList);
         setResourceCount(assets.length);
-        setFixMinutes(
-          fixList.reduce((sum, item) => sum + (item.estimated_fix_minutes ?? 0), 0),
-        );
         setError(null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -75,18 +71,20 @@ export function DashboardPage() {
   }, [authHeaders]);
 
   const latest = scans[0];
-  const severity: Record<string, number> = riskSummary
-    ? {
-        critical: riskSummary.critical,
-        high: riskSummary.high,
-        medium: riskSummary.medium,
-        low: riskSummary.low,
-        info: riskSummary.info,
-      }
-    : { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const riskCount = riskSummary?.total_findings ?? 0;
+  const immediateAction = priorities.length > 0 ? Math.min(priorities.length, 3) : riskSummary?.critical ?? 0;
   const topRisks: TopRiskItem[] = riskSummary?.top_risks ?? [];
-  const hasCritical = (severity.critical ?? 0) > 0;
-  const hasHigh = (severity.high ?? 0) > 0;
+  const score = riskSummary?.score ?? null;
+  const health = environmentHealthLabel(score);
+  const scoreText = score != null ? scoreDisplay(score) : null;
+  const cloudResources = riskSummary?.cloud_resources ?? resourceCount;
+  const resourcesAtRisk = riskSummary?.resources_at_risk ?? 0;
+  const resourcesProtected =
+    riskSummary?.resources_protected ?? Math.max(0, cloudResources - resourcesAtRisk);
+  const resourceSubtitle =
+    cloudResources > 0
+      ? `${resourcesProtected} ${copy.resourcesProtected.toLowerCase()} · ${resourcesAtRisk} ${copy.resourcesAtRisk.toLowerCase()}`
+      : undefined;
 
   if (loading) {
     return <p className="text-slate-500">Loading security overview…</p>;
@@ -104,7 +102,7 @@ export function DashboardPage() {
   if (!latestScanId) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Security overview</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Cloud security overview</h1>
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           {!hasIntegration ? (
             <>
@@ -121,7 +119,7 @@ export function DashboardPage() {
           ) : (
             <>
               <p className="text-slate-600">
-                Run your first scan to identify cloud security risks in your AWS account.
+                Run your first assessment to map cloud resources and surface risks.
               </p>
               <Link
                 to="/scans"
@@ -136,56 +134,51 @@ export function DashboardPage() {
     );
   }
 
+  const heroBorder =
+    health === "Healthy"
+      ? "border-emerald-200 from-emerald-50"
+      : health === "Needs review"
+        ? "border-amber-200 from-amber-50"
+        : "border-red-200 from-red-50";
+
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-6 shadow-sm">
+      <section className={`rounded-2xl border bg-gradient-to-br to-white p-6 shadow-sm ${heroBorder}`}>
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
-            {hasCritical || hasHigh ? (
-              <>
-                <p className="text-sm font-medium uppercase tracking-wide text-red-600">
-                  Security alert
-                </p>
-                <h1 className="mt-1 text-2xl font-bold text-slate-900">
-                  {hasCritical
-                    ? "Critical risks need immediate attention"
-                    : "High-priority risks detected in your cloud environment"}
-                </h1>
-                <div className="mt-4">
-                  <SeverityPills counts={severity} />
-                </div>
-                {fixMinutes > 0 && (
-                  <p className="mt-4 text-sm text-slate-600">
-                    Estimated remediation time: <strong>{fixMinutes} minutes</strong>
-                  </p>
-                )}
-                <p className="mt-2 text-sm text-red-800/80">
-                  {accountRiskSummary(severity.critical + severity.high, severity)}
-                </p>
-              </>
-            ) : (
-              <>
-                <h1 className="text-2xl font-bold text-emerald-800">No critical risks detected</h1>
-                <p className="mt-2 text-slate-600">
-                  Your latest assessment found no critical or high-severity misconfigurations.
-                </p>
-              </>
-            )}
+            <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
+              {copy.yourEnvironment}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-slate-900">{health}</h1>
+            <p className="mt-2 text-slate-600">
+              {riskCount === 0
+                ? "No open risks on your latest assessment."
+                : `${riskCount} open risk${riskCount !== 1 ? "s" : ""} across your cloud inventory.`}
+            </p>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <ScoreRing score={riskSummary?.score ?? null} />
+            <ScoreRing score={score} />
             <p className="text-xs font-medium text-slate-500">{copy.overallSecurityScore}</p>
           </div>
         </div>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <StatCard label={copy.criticalRisks} value={String(severity.critical ?? 0)} alert={severity.critical > 0} />
-        <StatCard label={copy.highRisks} value={String(severity.high ?? 0)} />
-        <StatCard label={copy.protectedResources} value={String(resourceCount)} />
+        <StatCard
+          label={copy.cloudResources}
+          value={String(cloudResources)}
+          subtitle={resourceSubtitle}
+        />
+        <StatCard label={copy.openRisks} value={String(riskCount)} alert={riskCount > 0} />
+        <StatCard
+          label={copy.immediateAction}
+          value={String(immediateAction)}
+          alert={immediateAction > 0}
+        />
         <StatCard
           label={copy.securityScore}
-          value={riskSummary?.score != null ? `${Math.round(riskSummary.score)}%` : "—"}
+          value={scoreText ? scoreText.value : "—"}
+          subtitle={scoreText?.label}
         />
       </div>
 
@@ -200,16 +193,18 @@ export function DashboardPage() {
         </section>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">{copy.topPriorities}</h2>
-        <PriorityFixList items={priorities} scanId={latestScanId} limit={3} />
-      </section>
+      {priorities.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-slate-900">{copy.immediateAction}</h2>
+          <PriorityFixList items={priorities} scanId={latestScanId} limit={3} />
+        </section>
+      )}
 
       {latest && (
         <section className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <div>
-              <span className="text-slate-400">Recent scan </span>
+              <span className="text-slate-400">Recent assessment </span>
               <span className="font-medium text-slate-700">
                 {formatRelativeTime(latest.completed_at ?? latest.created_at)}
               </span>
@@ -233,16 +228,19 @@ export function DashboardPage() {
 function StatCard({
   label,
   value,
+  subtitle,
   alert,
 }: {
   label: string;
   value: string;
+  subtitle?: string;
   alert?: boolean;
 }) {
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm ${alert ? "border-red-200" : "border-slate-200"}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-1 text-2xl font-semibold ${alert ? "text-red-600" : "text-slate-900"}`}>{value}</p>
+      {subtitle && <p className="mt-0.5 text-sm font-medium text-slate-500">{subtitle}</p>}
     </div>
   );
 }

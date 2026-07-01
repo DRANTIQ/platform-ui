@@ -86,6 +86,7 @@ export type TopRiskItem = {
   why_it_matters: string | null;
   business_impact: string | null;
   estimated_fix_minutes: number | null;
+  risk_score?: number;
 };
 
 export type ScanRiskSummary = {
@@ -97,6 +98,9 @@ export type ScanRiskSummary = {
   low: number;
   info: number;
   top_risks: TopRiskItem[];
+  cloud_resources?: number | null;
+  resources_at_risk?: number | null;
+  resources_protected?: number | null;
 };
 
 export type FixPriorityItem = {
@@ -189,11 +193,29 @@ export type RelatedResourceRef = {
   relationship_type: string;
 };
 
+export type RiskWhyBadge = {
+  id: string;
+  label: string;
+};
+
+export type RiskSignalsAssessed = {
+  business_critical: boolean;
+  lateral_movement: boolean;
+  blast_radius: boolean;
+};
+
 export type RiskSignals = {
   risk_score: number;
   internet_exposed: boolean;
   data_sensitive: boolean;
   confidence: string;
+  publicly_accessible: boolean;
+  identity_exposure: boolean;
+  business_critical: boolean;
+  lateral_movement: boolean;
+  blast_radius: boolean;
+  why_badges: RiskWhyBadge[];
+  assessed: RiskSignalsAssessed;
 };
 
 export type ScanCompliance = {
