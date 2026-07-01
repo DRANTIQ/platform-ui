@@ -5,6 +5,7 @@ import { AuthHashRedirect } from "./components/auth/AuthHashRedirect";
 import { WelcomeLayout } from "./components/welcome/WelcomeLayout";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthProvider } from "./contexts/AuthContext";
+import { EnvironmentScopeProvider } from "./contexts/EnvironmentScopeContext";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { AccountPage } from "./pages/AccountPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -60,7 +61,9 @@ export default function App() {
           <Route
             element={
               <ProtectedRoute requireOnboarding>
-                <AppShell />
+                <EnvironmentScopeProvider>
+                  <AppShell />
+                </EnvironmentScopeProvider>
               </ProtectedRoute>
             }
           >

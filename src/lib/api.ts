@@ -211,6 +211,17 @@ export function createAzureIntegration(
   return request(auth, "/v1/integrations/azure", { method: "POST", body });
 }
 
+export function rotateAzureIntegrationSecret(
+  auth: AuthHeaders,
+  integrationId: string,
+  body: { client_secret: string },
+): Promise<Integration> {
+  return request(auth, `/v1/integrations/${integrationId}/rotate-secret`, {
+    method: "POST",
+    body,
+  });
+}
+
 export function listScans(auth: AuthHeaders, limit = 50): Promise<Scan[]> {
   return request(auth, "/v1/scans", { params: { limit } });
 }

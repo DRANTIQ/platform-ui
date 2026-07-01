@@ -1,39 +1,58 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { createScan, listIntegrations, listScans } from "../lib/api";
+import { useEnvironmentScope } from "../contexts/EnvironmentScopeContext";
+import { EnvironmentScopeSelect } from "../components/layout/EnvironmentScopeSelect";
+import { createScan, listScans } from "../lib/api";
 import { formatDate, formatRelativeTime } from "../lib/format";
-import { integrationLabel } from "../lib/integrationDisplay";
+import {
+  isSpecificIntegrationFilter,
+  providerBadgeLabel,
+  scanAccountLabel,
+  scanMatchesFilter,
+  scopeDisplayLabel,
+} from "../lib/integrationDisplay";
 import { copy } from "../lib/productCopy";
 import { StatusBadge } from "../components/ui/StatusBadge";
-import type { Integration, Scan } from "../types/platform";
-
-const INTEGRATION_STORAGE_KEY = "platform-ui:selected-integration";
+import type { Scan } from "../types/platform";
 
 export function ScansPage() {
   const { authHeaders, canWrite } = useAuth();
   const navigate = useNavigate();
+  const {
+    scope,
+    integrations,
+    integrationsById,
+    refreshIntegrations,
+    isSingleAccount,
+  } = useEnvironmentScope();
   const [scans, setScans] = useState<Scan[]>([]);
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const filteredScans = useMemo(
+    () => scans.filter((scan) => scanMatchesFilter(scan, scope, integrationsById)),
+    [scans, scope, integrationsById],
+  );
+
+  const runIntegrationId = useMemo(() => {
+    if (isSpecificIntegrationFilter(scope)) return scope;
+    const active = integrations.filter((row) => row.status === "active");
+    if (scope === "provider:aws") return active.find((row) => row.provider === "aws")?.id ?? "";
+    if (scope === "provider:azure") return active.find((row) => row.provider === "azure")?.id ?? "";
+    return active[0]?.id ?? "";
+  }, [scope, integrations]);
+
+  const canRunScan = isSpecificIntegrationFilter(scope)
+    ? integrationsById.get(scope)?.status === "active"
+    : Boolean(runIntegrationId);
+
   const refresh = useCallback(async () => {
-    const [scanRows, intRows] = await Promise.all([
-      listScans(authHeaders),
-      listIntegrations(authHeaders),
-    ]);
+    const scanRows = await listScans(authHeaders);
     setScans(scanRows);
-    setIntegrations(intRows);
-    setSelectedIntegrationId((current) => {
-      if (current && intRows.some((row) => row.id === current)) return current;
-      const stored = localStorage.getItem(INTEGRATION_STORAGE_KEY);
-      if (stored && intRows.some((row) => row.id === stored)) return stored;
-      return intRows[0]?.id ?? "";
-    });
-  }, [authHeaders]);
+    await refreshIntegrations();
+  }, [authHeaders, refreshIntegrations]);
 
   useEffect(() => {
     refresh()
@@ -41,26 +60,19 @@ export function ScansPage() {
       .finally(() => setLoading(false));
   }, [refresh]);
 
-  function handleIntegrationChange(integrationId: string) {
-    setSelectedIntegrationId(integrationId);
-    if (integrationId) {
-      localStorage.setItem(INTEGRATION_STORAGE_KEY, integrationId);
-    }
-  }
-
   async function handleRunScan() {
     if (!integrations.length) {
       setError("No cloud integration registered for this tenant");
       return;
     }
-    if (!selectedIntegrationId) {
-      setError("Select an account to scan");
+    if (!canRunScan || !runIntegrationId) {
+      setError("Select a specific cloud account to run a new assessment");
       return;
     }
     setRunning(true);
     setError(null);
     try {
-      const scan = await createScan(authHeaders, selectedIntegrationId);
+      const scan = await createScan(authHeaders, runIntegrationId);
       await refresh();
       navigate(`/scans/${scan.id}`);
     } catch (e) {
@@ -78,44 +90,23 @@ export function ScansPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Security assessments</h1>
           <p className="text-sm text-slate-500">
-            Run {copy.productName.toLowerCase()} on your AWS and Azure environments
+            {scopeDisplayLabel(scope, integrations)} · Run {copy.productName.toLowerCase()} on your
+            cloud environments
           </p>
         </div>
-        {canWrite && integrations.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm text-slate-600">
-              <span className="sr-only">Cloud account</span>
-              <select
-                value={selectedIntegrationId}
-                onChange={(e) => handleIntegrationChange(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-              >
-                {integrations.map((integration) => (
-                  <option key={integration.id} value={integration.id}>
-                    {integrationLabel(integration)}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <EnvironmentScopeSelect />
+          {canWrite && integrations.length > 0 && (
             <button
               type="button"
               onClick={handleRunScan}
-              disabled={running || !selectedIntegrationId}
+              disabled={running || !canRunScan}
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {running ? copy.scanning : copy.runAssessment}
             </button>
-          </div>
-        )}
-        {canWrite && !integrations.length && (
-          <button
-            type="button"
-            disabled
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white opacity-50"
-          >
-            {copy.runAssessment}
-          </button>
-        )}
+          )}
+        </div>
       </div>
 
       {error && (
@@ -141,7 +132,7 @@ export function ScansPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {scans.length === 0 && (
+            {filteredScans.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
                   {integrations.length === 0 ? (
@@ -151,38 +142,69 @@ export function ScansPage() {
                         Connect cloud account
                       </Link>
                     </>
-                  ) : (
+                  ) : scans.length === 0 ? (
                     <>
                       Run your first scan to identify cloud security risks.{" "}
                       <button
                         type="button"
                         onClick={handleRunScan}
-                        className="font-medium text-indigo-600 hover:underline"
+                        disabled={!canRunScan}
+                        className="font-medium text-indigo-600 hover:underline disabled:text-slate-400"
                       >
                         {copy.runAssessment}
                       </button>
                     </>
+                  ) : (
+                    <>No assessments match this environment.</>
                   )}
                 </td>
               </tr>
             )}
-            {scans.map((scan) => (
-              <tr key={scan.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <Link to={`/scans/${scan.id}`} className="font-medium text-indigo-600 hover:underline">
-                    {formatRelativeTime(scan.completed_at ?? scan.started_at ?? scan.created_at)}
-                  </Link>
-                  <p className="text-xs text-slate-400">{formatDate(scan.completed_at ?? scan.started_at)}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={scan.status} />
-                </td>
-                <td className="px-4 py-3 font-mono text-slate-600">{scan.account_id ?? "—"}</td>
-              </tr>
-            ))}
+            {filteredScans.map((scan) => {
+              const integration = integrationsById.get(scan.integration_id);
+              const provider = scan.provider ?? integration?.provider;
+              return (
+                <tr key={scan.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <Link to={`/scans/${scan.id}`} className="font-medium text-indigo-600 hover:underline">
+                      {formatRelativeTime(scan.completed_at ?? scan.started_at ?? scan.created_at)}
+                    </Link>
+                    <p className="text-xs text-slate-400">
+                      {formatDate(scan.completed_at ?? scan.started_at ?? scan.created_at)}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={scan.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {provider && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          {providerBadgeLabel(provider)}
+                        </span>
+                      )}
+                      <span className="font-mono text-slate-600">
+                        {scanAccountLabel(scan, integration)}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        {!isSingleAccount && filteredScans.length > 0 && (
+          <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+            Showing {filteredScans.length} of {scans.length} assessments
+          </p>
+        )}
       </div>
+
+      {canWrite && integrations.length > 0 && !isSpecificIntegrationFilter(scope) && (
+        <p className="text-sm text-slate-500">
+          To run a new assessment on one account, choose that account in the environment selector.
+        </p>
+      )}
     </div>
   );
 }

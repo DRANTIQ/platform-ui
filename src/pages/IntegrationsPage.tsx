@@ -6,6 +6,8 @@ import { ConnectAwsForm } from "../components/integrations/ConnectAwsForm";
 
 import { ConnectAzureForm } from "../components/integrations/ConnectAzureForm";
 
+import { RotateAzureSecretForm } from "../components/integrations/RotateAzureSecretForm";
+
 import { StatusBadge } from "../components/ui/StatusBadge";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -199,6 +201,24 @@ export function IntegrationsPage() {
 
         />
 
+      )}
+
+
+
+      {integrations.some((i) => i.provider === "azure" && i.status === "invalid") && canWrite && (
+        <div className="space-y-3">
+          {integrations
+            .filter((i) => i.provider === "azure" && i.status === "invalid")
+            .map((item) => (
+              <RotateAzureSecretForm
+                key={item.id}
+                authHeaders={authHeaders}
+                integrationId={item.id}
+                subscriptionId={item.account_id}
+                onSuccess={refresh}
+              />
+            ))}
+        </div>
       )}
 
 

@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { UserMenu } from "./UserMenu";
+import { EnvironmentScopeSelect } from "./EnvironmentScopeSelect";
 import { useAuth } from "../../contexts/AuthContext";
 import { isSupabaseAuth } from "../../lib/config";
 import { copy } from "../../lib/productCopy";
@@ -37,7 +38,10 @@ export function AppShell() {
               )}
             </nav>
           </div>
-          {isSupabaseAuth() && mode === "supabase" ? <UserMenu /> : null}
+          <div className="flex flex-wrap items-center gap-4">
+            <EnvironmentScopeSelect compact />
+            {isSupabaseAuth() && mode === "supabase" ? <UserMenu /> : null}
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">

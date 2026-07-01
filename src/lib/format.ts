@@ -8,6 +8,7 @@ export function statusTone(status: string): string {
   if (status === "completed") return "bg-emerald-100 text-emerald-800";
   if (status === "completed_with_errors") return "bg-amber-100 text-amber-900";
   if (status === "failed") return "bg-red-100 text-red-800";
+  if (status === "invalid") return "bg-red-100 text-red-800";
   if (status === "evaluating" || status === "ingesting" || status === "collecting") {
     return "bg-blue-100 text-blue-800";
   }
