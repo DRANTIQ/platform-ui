@@ -167,7 +167,7 @@ export function ScanDetailPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
-    { id: "issues", label: `Issues (${failCount})` },
+    { id: "issues", label: copy.securityFindings },
     { id: "resources", label: `Resources (${assets.length})` },
     { id: "compliance", label: copy.frameworkCoverage },
     { id: "timeline", label: "Timeline" },
@@ -405,20 +405,23 @@ export function ScanDetailPage() {
               </h2>
               <p className="text-sm text-slate-500">{copy.securityScore}</p>
               <p className="text-3xl font-bold text-slate-900">{compliance.score.toFixed(0)}%</p>
-              {compliance.coverage && (
-                <p className="mt-1 text-xs text-slate-400">
-                  {compliance.coverage.automated} automated · {compliance.coverage.manual} manual
-                </p>
-              )}
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-4">
-            <SummaryTile label="Passed" value={compliance.summary.pass ?? 0} tone="text-emerald-700" />
-            <SummaryTile label="Failed" value={compliance.summary.fail ?? 0} tone="text-red-700" />
-            <SummaryTile label="Manual" value={compliance.summary.manual ?? 0} tone="text-slate-600" />
             <SummaryTile
-              label="Not collected"
+              label={copy.coverageAutomated}
+              value={compliance.summary.pass ?? 0}
+              tone="text-emerald-700"
+            />
+            <SummaryTile
+              label={copy.coverageAtRisk}
+              value={compliance.summary.fail ?? 0}
+              tone="text-red-700"
+            />
+            <SummaryTile label={copy.coverageManual} value={compliance.summary.manual ?? 0} tone="text-slate-600" />
+            <SummaryTile
+              label={copy.coverageNotAssessed}
               value={compliance.summary.not_assessed ?? 0}
               tone="text-slate-500"
             />
@@ -442,7 +445,7 @@ export function ScanDetailPage() {
 
           <details className="rounded-xl border border-slate-200 bg-white">
             <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-600">
-              {copy.allRequirements} ({compliance.controls.length})
+              {copy.viewRequirementDetails}
             </summary>
             <div className="border-t border-slate-100">
               <table className="min-w-full text-left text-sm">

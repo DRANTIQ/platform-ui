@@ -67,6 +67,8 @@ export function FindingDetailPage() {
   const tf = terraformFix(finding);
   const cfn = cloudformationFix(finding);
   const frameworks = customerFrameworkTags(frameworkTags(finding));
+  const riskScore = finding.risk_signals?.risk_score;
+  const related = finding.related_resources ?? [];
 
   return (
     <div className="space-y-6">
@@ -90,12 +92,31 @@ export function FindingDetailPage() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <DetailCard label="Affected resource" value={finding.affected_resource} />
+        <DetailCard label={copy.affectedResource} value={finding.affected_resource} />
         <DetailCard label="Resource type" value={finding.resource_type_label} />
         <DetailCard label="Region" value={region} />
         <DetailCard label="Severity" value={finding.severity} capitalize />
+        {riskScore != null && (
+          <DetailCard label={copy.riskScore} value={`${riskScore} / 100`} />
+        )}
         <DetailCard label="Estimated fix" value={`${estimatedFixMinutes(finding)} minutes`} />
       </div>
+
+      {related.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+            {copy.relatedResources}
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {related.map((rel) => (
+              <li key={rel.resource_id} className="text-sm text-slate-700">
+                <span className="font-medium">{rel.resource_name}</span>
+                <span className="text-slate-400"> · {rel.relationship_type.replace(/_/g, " ")}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Why this matters</h2>
@@ -181,9 +202,15 @@ export function FindingDetailPage() {
               {finding.technical_title}
             </p>
             <p className="mt-2">
-              <span className="text-slate-400">{copy.securityCheckId}:</span>{" "}
+              <span className="text-slate-400">{copy.securityControlId}:</span>{" "}
               <code className="font-mono">{finding.policy_id}</code>
             </p>
+            {finding.policy_version && (
+              <p className="mt-2">
+                <span className="text-slate-400">{copy.securityControlVersion}:</span>{" "}
+                <code className="font-mono">{finding.policy_version}</code>
+              </p>
+            )}
             <p className="mt-2">
               <span className="text-slate-400">Resource ID:</span>{" "}
               <code className="break-all font-mono text-xs">{finding.resource_id}</code>

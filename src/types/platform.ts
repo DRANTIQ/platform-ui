@@ -70,6 +70,9 @@ export type FindingDetail = Finding & {
   risk: string | null;
   business_impact: string | null;
   frameworks: FrameworkRef[];
+  policy_version?: string;
+  risk_signals?: RiskSignals;
+  related_resources?: RelatedResourceRef[];
 };
 
 export type TopRiskItem = {
@@ -112,6 +115,7 @@ export type FixPriorityItem = {
   frameworks: FrameworkRef[];
   internet_exposed: boolean;
   data_sensitive: boolean;
+  risk_score?: number;
 };
 
 export type ResourceRisk = {
@@ -168,7 +172,7 @@ export type ComplianceFramework = {
 };
 
 export type ComplianceCoverage = {
-  total_checks: number;
+  total_checks?: number;
   assessed: number;
   automated: number;
   not_assessed: number;
@@ -176,6 +180,20 @@ export type ComplianceCoverage = {
   pass: number;
   fail: number;
   pass_rate: number;
+};
+
+export type RelatedResourceRef = {
+  resource_id: string;
+  resource_name: string;
+  resource_type: string;
+  relationship_type: string;
+};
+
+export type RiskSignals = {
+  risk_score: number;
+  internet_exposed: boolean;
+  data_sensitive: boolean;
+  confidence: string;
 };
 
 export type ScanCompliance = {

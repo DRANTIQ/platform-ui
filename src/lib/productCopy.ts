@@ -1,10 +1,11 @@
 /**
  * Customer-facing product language (ADR-015).
- * Internal API identifiers (policy_id, framework_id) stay technical — never lead with these in UI.
+ * Cloud security platform — compliance is one lens, not the product identity.
+ * Internal API identifiers (policy_id, framework_id) stay technical in collapsed UI only.
  */
 
 export const copy = {
-  productName: "Drantiq Security Assessment",
+  productName: "Drantiq Cloud Security",
   brandName: "Drantiq",
 
   runAssessment: "Run security assessment",
@@ -14,25 +15,42 @@ export const copy = {
   securityScore: "Security score",
   overallSecurityScore: "Overall security score",
 
-  securityCheck: "Security check",
-  securityCheckId: "Check ID",
-  securityFinding: "Security finding",
-  securityFindings: "Security findings",
-  openIssues: "Open issues",
+  /** Customer-facing term for automated policy rules (never "checks" in UI). */
+  securityControl: "Security control",
+  securityControlId: "Control ID",
+  securityControlVersion: "Control version",
+  securityFinding: "Security risk",
+  securityFindings: "Security risks",
+  openIssues: "Open risks",
 
-  frameworkCoverage: "Framework coverage",
-  allRequirements: "All security requirements",
+  protectedResources: "Protected resources",
+  criticalRisks: "Critical risks",
+  highRisks: "High risks",
+  topPriorities: "Top priorities",
+
+  frameworkCoverage: "Compliance coverage",
+  complianceLens: "Compliance lens",
+  coverageAutomated: "Automated",
+  coverageManual: "Manual",
+  coverageNotAssessed: "Not assessed",
+  coverageAtRisk: "At risk",
+  viewRequirementDetails: "View requirement details",
+
+  allRequirements: "Requirement details",
   requirementColumn: "Requirement",
+
+  relatedResources: "Related resources",
+  affectedResource: "Affected resource",
+  riskScore: "Risk score",
 
   scansNav: "Assessments",
   scanReport: "Security assessment report",
   backToReport: "Back to assessment report",
 
   disclaimer:
-    "Drantiq performs independent security assessments. Framework mappings are for reference and do not constitute certification or attestation by any standards body.",
+    "Drantiq is a cloud security platform. Compliance mappings are one feature for reference — they do not constitute certification or attestation by any standards body.",
 
-  /** Default display when API still returns a CIS-titled framework (until P2 backend rename). */
-  defaultFrameworkDisplayTitle: "Drantiq Security Assessment",
+  defaultFrameworkDisplayTitle: "Drantiq Cloud Security",
 } as const;
 
 /** Strip third-party framework branding from API-provided titles shown to customers. */

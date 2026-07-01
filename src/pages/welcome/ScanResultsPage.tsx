@@ -68,7 +68,7 @@ export function ScanResultsPage() {
       <p className="mt-2 text-slate-600">
         {count > 0
           ? `We found ${count} security issue${count !== 1 ? "s" : ""} in your AWS account.`
-          : "Your first scan completed with no failing security checks."}
+          : "Your first assessment completed with no critical or high-severity risks."}
       </p>
 
       {priorities.length > 0 && scanId && (

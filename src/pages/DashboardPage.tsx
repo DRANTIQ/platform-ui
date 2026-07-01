@@ -75,7 +75,6 @@ export function DashboardPage() {
   }, [authHeaders]);
 
   const latest = scans[0];
-  const failCount = riskSummary?.total_findings ?? 0;
   const severity: Record<string, number> = riskSummary
     ? {
         critical: riskSummary.critical,
@@ -86,6 +85,8 @@ export function DashboardPage() {
       }
     : { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   const topRisks: TopRiskItem[] = riskSummary?.top_risks ?? [];
+  const hasCritical = (severity.critical ?? 0) > 0;
+  const hasHigh = (severity.high ?? 0) > 0;
 
   if (loading) {
     return <p className="text-slate-500">Loading security overview…</p>;
@@ -140,30 +141,34 @@ export function DashboardPage() {
       <section className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
-            {failCount > 0 ? (
+            {hasCritical || hasHigh ? (
               <>
                 <p className="text-sm font-medium uppercase tracking-wide text-red-600">
                   Security alert
                 </p>
                 <h1 className="mt-1 text-2xl font-bold text-slate-900">
-                  Your AWS account has {failCount} security issue{failCount !== 1 ? "s" : ""}
+                  {hasCritical
+                    ? "Critical risks need immediate attention"
+                    : "High-priority risks detected in your cloud environment"}
                 </h1>
                 <div className="mt-4">
                   <SeverityPills counts={severity} />
                 </div>
                 {fixMinutes > 0 && (
                   <p className="mt-4 text-sm text-slate-600">
-                    Estimated time to fix: <strong>{fixMinutes} minutes</strong>
+                    Estimated remediation time: <strong>{fixMinutes} minutes</strong>
                   </p>
                 )}
                 <p className="mt-2 text-sm text-red-800/80">
-                  {accountRiskSummary(failCount, severity)}
+                  {accountRiskSummary(severity.critical + severity.high, severity)}
                 </p>
               </>
             ) : (
               <>
-                <h1 className="text-2xl font-bold text-emerald-800">No critical issues detected</h1>
-                <p className="mt-2 text-slate-600">Your latest scan found no failing security checks.</p>
+                <h1 className="text-2xl font-bold text-emerald-800">No critical risks detected</h1>
+                <p className="mt-2 text-slate-600">
+                  Your latest assessment found no critical or high-severity misconfigurations.
+                </p>
               </>
             )}
           </div>
@@ -175,15 +180,18 @@ export function DashboardPage() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <StatCard label="Critical" value={String(severity.critical ?? 0)} alert={severity.critical > 0} />
-        <StatCard label="High" value={String(severity.high ?? 0)} />
-        <StatCard label="Resources" value={String(resourceCount)} />
-        <StatCard label={copy.openIssues} value={String(failCount)} />
+        <StatCard label={copy.criticalRisks} value={String(severity.critical ?? 0)} alert={severity.critical > 0} />
+        <StatCard label={copy.highRisks} value={String(severity.high ?? 0)} />
+        <StatCard label={copy.protectedResources} value={String(resourceCount)} />
+        <StatCard
+          label={copy.securityScore}
+          value={riskSummary?.score != null ? `${Math.round(riskSummary.score)}%` : "—"}
+        />
       </div>
 
       {topRisks.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-slate-900">Top business risks</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{copy.topPriorities}</h2>
           <div className="space-y-2">
             {topRisks.slice(0, 5).map((risk, i) => (
               <TopRiskListItem key={risk.finding_id} risk={risk} scanId={latestScanId} index={i + 1} />
@@ -193,7 +201,7 @@ export function DashboardPage() {
       )}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">What should I fix first?</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{copy.topPriorities}</h2>
         <PriorityFixList items={priorities} scanId={latestScanId} limit={3} />
       </section>
 
