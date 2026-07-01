@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { PriorityFixList } from "../../components/security/PriorityFixList";
 import { useAuth } from "../../contexts/AuthContext";
-import { getScanFixPriorities, getScanRiskSummary, listScans, updateOnboardingState } from "../../lib/api";
+import { getScanFixPriorities, getScanRiskSummary, listIntegrations, listScans, updateOnboardingState } from "../../lib/api";
+import { accountScopeLabel } from "../../lib/integrationDisplay";
 import type { FixPriorityItem, ScanRiskSummary } from "../../types/platform";
 
 export function ScanResultsPage() {
@@ -15,6 +16,7 @@ export function ScanResultsPage() {
   const [summary, setSummary] = useState<ScanRiskSummary | null>(null);
   const [priorities, setPriorities] = useState<FixPriorityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [provider, setProvider] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,13 +32,15 @@ export function ScanResultsPage() {
           return;
         }
         setScanId(id);
-        const [risk, fixes] = await Promise.all([
+        const [risk, fixes, integrations] = await Promise.all([
           getScanRiskSummary(authHeaders, id),
           getScanFixPriorities(authHeaders, id, 3),
+          listIntegrations(authHeaders).catch(() => []),
         ]);
         if (!cancelled) {
           setSummary(risk);
           setPriorities(fixes);
+          setProvider(integrations[0]?.provider ?? null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -59,6 +63,7 @@ export function ScanResultsPage() {
   }
 
   const count = summary?.total_findings ?? 0;
+  const envLabel = accountScopeLabel(provider);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -67,8 +72,8 @@ export function ScanResultsPage() {
       <h1 className="mt-4 text-2xl font-bold text-slate-900">Congratulations!</h1>
       <p className="mt-2 text-slate-600">
         {count > 0
-          ? `We found ${count} security issue${count !== 1 ? "s" : ""} in your AWS account.`
-          : "Your first assessment completed with no critical or high-severity risks."}
+          ? `We found ${count} security issue${count !== 1 ? "s" : ""} in your ${envLabel}.`
+          : `Your first assessment completed with no critical or high-severity risks in your ${envLabel}.`}
       </p>
 
       {priorities.length > 0 && scanId && (

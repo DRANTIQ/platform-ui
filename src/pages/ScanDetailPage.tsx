@@ -30,6 +30,7 @@ import {
   scanDurationLabel,
 } from "../lib/securityPresentation";
 import { copy, customerFrameworkTitle } from "../lib/productCopy";
+import { accountScopeLabel, formatScanError } from "../lib/integrationDisplay";
 import { scoreDisplay } from "../lib/riskScore";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type {
@@ -177,6 +178,9 @@ export function ScanDetailPage() {
   const duration = scanDurationLabel(scan.started_at, scan.completed_at);
   const customerTl = customerTimeline(timeline);
   const resourceGroups = groupAssetsByType(assets);
+  const accountLabel = accountScopeLabel(scan.provider);
+  const scanFailed = scan.status === "failed";
+  const failureMessage = formatScanError(scan.error);
 
   return (
     <div className="space-y-6">
@@ -191,7 +195,7 @@ export function ScanDetailPage() {
         </div>
         {scan.account_id && (
           <p className="mt-1 text-sm text-slate-500">
-            AWS account <span className="font-mono">{scan.account_id}</span>
+            {accountLabel} <span className="font-mono">{scan.account_id}</span>
             {scan.completed_at && (
               <span className="ml-3">· {formatRelativeTime(scan.completed_at)}</span>
             )}
@@ -199,7 +203,21 @@ export function ScanDetailPage() {
         )}
       </header>
 
-      {loadError && terminal && (
+      {scanFailed && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
+          <p className="font-semibold">This assessment did not complete</p>
+          <p className="mt-1">
+            {failureMessage ??
+              "No cloud resources were collected. Open the Timeline tab for the failure reason, then run a new scan."}
+          </p>
+          <p className="mt-2 text-red-800">
+            For Azure: confirm the service principal has <strong>Reader</strong> on the subscription,
+            the client secret is valid, and your selected regions contain resources.
+          </p>
+        </div>
+      )}
+
+      {loadError && terminal && !scanFailed && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {loadError}
         </div>
@@ -234,9 +252,11 @@ export function ScanDetailPage() {
                 </p>
               )}
               <p className="mt-1 text-lg font-medium text-slate-900">
-                {failCount === 0
-                  ? "No open risks"
-                  : `${failCount} open risk${failCount !== 1 ? "s" : ""}`}
+                {scanFailed
+                  ? "Assessment incomplete"
+                  : failCount === 0
+                    ? "No open risks"
+                    : `${failCount} open risk${failCount !== 1 ? "s" : ""}`}
               </p>
               <div className="mt-3">
                 <SeverityPills counts={severity} />
@@ -255,7 +275,17 @@ export function ScanDetailPage() {
 
           <section className="space-y-2">
             <h2 className="font-semibold text-slate-900">What should I fix first?</h2>
-            <PriorityFixList items={fixPriorities} scanId={scanId!} limit={3} />
+            <PriorityFixList
+              items={fixPriorities}
+              scanId={scanId!}
+              limit={3}
+              emptyMessage={
+                scanFailed
+                  ? "Fix the connection or permissions issue above, then run a new assessment."
+                  : "No open security issues — your latest scan looks good."
+              }
+              emptyTone={scanFailed ? "neutral" : "success"}
+            />
           </section>
         </div>
       )}
@@ -295,7 +325,7 @@ export function ScanDetailPage() {
       {tab === "resources" && (
         <div className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900">AWS account</h2>
+            <h2 className="font-semibold text-slate-900">{accountLabel}</h2>
             <p className="mt-1 font-mono text-lg">{scan.account_id ?? "—"}</p>
             <div className="mt-4">
               <p className="text-sm font-medium text-slate-700">Summary</p>
@@ -398,8 +428,9 @@ export function ScanDetailPage() {
 
           {!complianceLoading && !compliance && (
             <p className="text-slate-500">
-              Framework coverage is not available for this scan yet. Run a new scan after connecting
-              your account.
+              {scanFailed
+                ? "Framework coverage is unavailable because the assessment did not complete."
+                : "Framework coverage is not available for this scan yet. Run a new scan after connecting your account."}
             </p>
           )}
 

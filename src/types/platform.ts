@@ -10,6 +10,7 @@ export type Scan = {
   updated_at: string;
   account_id?: string | null;
   collection_status?: string | null;
+  provider?: string | null;
   error?: Record<string, unknown> | null;
 };
 

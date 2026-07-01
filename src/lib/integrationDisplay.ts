@@ -23,3 +23,19 @@ export function integrationSecondaryLine(integration: Integration): string {
   }
   return integration.role_arn ?? "—";
 }
+
+export function accountScopeLabel(provider?: string | null): string {
+  if (provider === "azure") return "Azure subscription";
+  return "AWS account";
+}
+
+export function formatScanError(error: Record<string, unknown> | null | undefined): string | null {
+  if (!error) return null;
+  const message = error.message;
+  if (typeof message === "string" && message.trim()) return message.trim();
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Scan failed — see the Timeline tab for details.";
+  }
+}

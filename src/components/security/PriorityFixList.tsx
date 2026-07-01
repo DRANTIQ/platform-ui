@@ -13,15 +13,25 @@ export function PriorityFixList({
   items,
   scanId,
   limit = 5,
+  emptyMessage = "No open security issues — your latest scan looks good.",
+  emptyTone = "success",
 }: {
   items: FixPriorityItem[];
   scanId: string;
   limit?: number;
+  emptyMessage?: string;
+  emptyTone?: "success" | "neutral";
 }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-6 text-sm text-emerald-800">
-        No open security issues — your latest scan looks good.
+      <p
+        className={`rounded-xl border px-4 py-6 text-sm ${
+          emptyTone === "success"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+            : "border-slate-200 bg-slate-50 text-slate-700"
+        }`}
+      >
+        {emptyMessage}
       </p>
     );
   }
