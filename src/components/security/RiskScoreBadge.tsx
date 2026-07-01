@@ -1,4 +1,4 @@
-import { riskScoreShortLabel, riskScoreTone } from "../lib/riskScore";
+import { riskScoreShortLabel, riskScoreTone } from "../../lib/riskScore";
 
 /** Compact risk score for list rows (number + short label). */
 export function RiskScoreBadge({ score }: { score: number }) {

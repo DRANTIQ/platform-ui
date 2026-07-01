@@ -28,8 +28,8 @@ export function SeverityPills({ counts }: { counts: Record<string, number> }) {
   );
 }
 
-import type { SecurityScoreBand } from "./riskScore";
-import { scoreDisplay, securityScoreBand, securityScoreLabel } from "./riskScore";
+import type { SecurityScoreBand } from "../../lib/riskScore";
+import { scoreDisplay, securityScoreBand, securityScoreLabel } from "../../lib/riskScore";
 
 export function ScoreRing({ score, size = "lg" }: { score: number | null; size?: "lg" | "md" }) {
   if (score == null) {
