@@ -11,8 +11,13 @@ import {
   listAssets,
   listComplianceFrameworks,
   listFindings,
+  ApiError,
 } from "../lib/api";
 import { loadScanExperience } from "../lib/scanExperience";
+import {
+  defaultFrameworkForProvider,
+  frameworksForScanProvider,
+} from "../lib/frameworks";
 import {
   controlStatusTone,
   formatDate,
@@ -30,7 +35,7 @@ import {
   scanDurationLabel,
 } from "../lib/securityPresentation";
 import { copy, customerFrameworkTitle } from "../lib/productCopy";
-import { accountScopeLabel, formatScanError } from "../lib/integrationDisplay";
+import { accountScopeLabel, formatScanError, inferScanProvider } from "../lib/integrationDisplay";
 import { scoreDisplay } from "../lib/riskScore";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type {
@@ -80,7 +85,8 @@ export function ScanDetailPage() {
   const topRisks: TopRiskItem[] = scanRiskSummary?.top_risks ?? [];
 
   useEffect(() => {
-    if (!scanId || !terminal) return;
+    if (!scanId || !terminal || !scan) return;
+    const scanProvider = inferScanProvider(scan);
     let cancelled = false;
     async function loadDetails() {
       try {
@@ -95,11 +101,10 @@ export function ScanDetailPage() {
         setScanRiskSummary(experience.summary);
         setFixPriorities(experience.priorities);
         setTimeline(tl);
-        if (fw.length > 0) {
-          setFrameworks(fw);
-          const defaultFw =
-            fw.find((f) => f.framework_id === DEFAULT_FRAMEWORK_ID) ?? fw[0];
-          setSelectedFrameworkId(defaultFw.framework_id);
+        const visible = frameworksForScanProvider(fw, scanProvider);
+        if (visible.length > 0) {
+          setFrameworks(visible);
+          setSelectedFrameworkId(defaultFrameworkForProvider(visible, scanProvider));
         }
         setLoadError(null);
       } catch (e) {
@@ -110,32 +115,43 @@ export function ScanDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [authHeaders, scanId, terminal]);
+  }, [authHeaders, scanId, terminal, scan?.provider, scan?.account_id]);
 
   useEffect(() => {
     if (!scanId || !terminal) return;
     let cancelled = false;
+    let attempt = 0;
     setComplianceLoading(true);
-    getScanCompliance(authHeaders, scanId, selectedFrameworkId)
-      .then((comp) => {
-        if (!cancelled) {
-          setCompliance(comp);
-          setComplianceLoading(false);
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setCompliance(null);
-          setComplianceLoading(false);
-          if (tab === "compliance") {
-            setLoadError(e instanceof Error ? e.message : "Failed to load framework coverage");
+
+    async function loadCompliance() {
+      while (!cancelled && attempt < 10) {
+        try {
+          const comp = await getScanCompliance(authHeaders, scanId!, selectedFrameworkId);
+          if (!cancelled) {
+            setCompliance(comp);
+            setComplianceLoading(false);
           }
+          return;
+        } catch (e) {
+          const retryable = e instanceof ApiError && e.status === 404;
+          attempt += 1;
+          if (!retryable || attempt >= 10 || cancelled) {
+            if (!cancelled) {
+              setCompliance(null);
+              setComplianceLoading(false);
+            }
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 2000));
         }
-      });
+      }
+    }
+
+    void loadCompliance();
     return () => {
       cancelled = true;
     };
-  }, [authHeaders, scanId, terminal, selectedFrameworkId, tab]);
+  }, [authHeaders, scanId, terminal, selectedFrameworkId]);
 
   useEffect(() => {
     if (!scanId || !terminal || tab !== "issues" || findingsLoaded) return;
@@ -178,8 +194,9 @@ export function ScanDetailPage() {
   const duration = scanDurationLabel(scan.started_at, scan.completed_at);
   const customerTl = customerTimeline(timeline);
   const resourceGroups = groupAssetsByType(assets);
-  const accountLabel = accountScopeLabel(scan.provider);
+  const accountLabel = accountScopeLabel(inferScanProvider(scan));
   const scanFailed = scan.status === "failed";
+  const scanPartial = scan.status === "completed_with_errors";
   const failureMessage = formatScanError(scan.error);
 
   return (
@@ -213,6 +230,16 @@ export function ScanDetailPage() {
           <p className="mt-2 text-red-800">
             For Azure: confirm the service principal has <strong>Reader</strong> on the subscription,
             the client secret is valid, and your selected regions contain resources.
+          </p>
+        </div>
+      )}
+
+      {scanPartial && !scanFailed && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+          <p className="font-semibold">Assessment completed with collection warnings</p>
+          <p className="mt-1">
+            Some collectors reported errors. Results below reflect what was successfully collected
+            ({assets.length} resource{assets.length !== 1 ? "s" : ""}). Check Timeline for details.
           </p>
         </div>
       )}
@@ -430,7 +457,9 @@ export function ScanDetailPage() {
             <p className="text-slate-500">
               {scanFailed
                 ? "Framework coverage is unavailable because the assessment did not complete."
-                : "Framework coverage is not available for this scan yet. Run a new scan after connecting your account."}
+                : scan.status === "evaluating" || scan.status === "inventory_ready"
+                  ? "Calculating compliance coverage…"
+                  : "Framework coverage is not available for this scan yet. Try refreshing in a moment."}
             </p>
           )}
 

@@ -39,3 +39,14 @@ export function formatScanError(error: Record<string, unknown> | null | undefine
     return "Scan failed — see the Timeline tab for details.";
   }
 }
+
+/** Fallback when GET /v1/scans/{id} has no provider (older API deploy). */
+export function inferScanProvider(scan: {
+  provider?: string | null;
+  account_id?: string | null;
+}): string {
+  if (scan.provider) return scan.provider;
+  if (scan.account_id && /^\d{12}$/.test(scan.account_id)) return "aws";
+  if (scan.account_id && /^[0-9a-f-]{36}$/i.test(scan.account_id)) return "azure";
+  return "aws";
+}
